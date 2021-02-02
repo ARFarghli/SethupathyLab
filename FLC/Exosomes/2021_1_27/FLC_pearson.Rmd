@@ -1,0 +1,99 @@
+---
+title: "PRI-FLCPDX-miR correlation"
+author: "Alaa R. Farghli"
+date: "1/27/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(dplyr)
+library(ggpubr) 
+library(tibble)
+```
+### Load CSV
+```{r load relevant csvs}
+flc.intra.deseq <- read.csv("FLC-PDX_DESeq_miRs.csv")
+flc.pri <- read.csv("PRI-mIRs.csv")
+flc.intra.rpmmm <- read.csv("FLC-PDX_RPMMM_miRs.csv")
+```
+
+### Full join FLC primary tumor and FLC-PDX miRs (avg_DESeq). Changed is.na to 0
+```{r}
+flc.combined.deseq <- full_join(flc.intra.deseq, flc.pri, by = "miR")
+flc.combined.deseq[is.na(flc.combined.deseq)] <- 0
+```
+
+```{r}
+p <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "DESeq Normalized Intra_FLC-PDX", ylab = "Primary FLC", title = "Primary FLC tumor miRS vs FLC-PDX miRs")
+
+p
+```
+
+### Removed rows that equal 0
+```{r}
+flc.combined.deseq <- column_to_rownames(flc.combined.deseq, var = "miR")
+flc.clean <- flc.combined.deseq[rowSums(flc.combined.deseq[])>0,]
+```
+
+### Plotted cleaned DEseq_dataframe with and without log10 transformation
+```{r}
+p2 <- ggscatter(flc.clean, x = "avg_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "DESeq Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs FLC-PDX miRs") 
+
+p3 <- ggscatter(flc.clean, x = "avg_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "log10 DESeq Intra_FLC", ylab = "log 10 Primary FLC", title = "log10(Primary FLC tumor miRs vs DESeq_FLC-PDX miRs)") +
+  scale_x_log10() +
+  scale_y_log10()
+
+p2
+p3
+```
+
+#Work flow with RPMMM
+```{r}
+flc.combined.rpmmm <- full_join(flc.intra.rpmmm, flc.pri, by = "miR")
+flc.combined.rpmmm[is.na(flc.combined.rpmmm)] <- 0
+flc.combined.rpmmm <- column_to_rownames(flc.combined.rpmmm, var = "miR")
+flc.clean.rpmmm <- flc.combined.rpmmm[rowSums(flc.combined.rpmmm[])>0,]
+```
+
+```{r}
+p4 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "RPMMM Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs") 
+
+p5 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "log10 RPMMM Normalized Intra_FLC", ylab = "log10 Primary FLC", title = "log10(Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs)") +
+  scale_x_log10() +
+  scale_y_log10()
+  
+p4
+p5
+```
+
+```{r ggsave}
+
+```
+
+
+
+
+
+
+
