@@ -1,5 +1,5 @@
 ---
-title: "PRI-FLCPDX-miR correlation"
+title: "Patient FLC and FLC Sphereoid miR correlation"
 author: "Alaa R. Farghli"
 date: "1/27/2021"
 output:
@@ -19,97 +19,121 @@ library(tibble)
 ### Load CSV
 ```{r load and create relevant csvs}
 flc.counts <- read.csv("../NML-PRI-MET_noDups_avg-normalized-counts-by-group.csv")
-flc.intra.sphereoids.deseq <- read.csv("FLC-PDX_DESeq_miRs.csv")
-flc.intra.sphereoids.rpmmm <- read.csv("FLC-PDX_RPMMM_miRs.csv")
+flc.sphereoids <- read.csv("FLC-PDX_DESeq_miRs.csv")
 flc.pri <- flc.counts %>% 
   select(miR, avg_PRI)
 flc.mets <- flc.counts %>% 
   select(miR, avg_MET)
 ```
 
-### Full join FLC primary tumor and FLC-PDX miRs (avg_DESeq). Changed is.na to 0
-```{r}
-flc.combined.deseq <- full_join(flc.intra.deseq, flc.pri, by = "miR")
+### Workflow with primary patient FLC primary tumors 
+```{r making and cleaning primary tumor tables}
+#Join intracellular sphereoids miRs with primary tumor miRs
+flc.combined.deseq <- full_join(flc.sphereoids, flc.pri, by = "miR")
+#change is.na rows to 0
 flc.combined.deseq[is.na(flc.combined.deseq)] <- 0
-```
-
-```{r}
-p <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI", 
-          add = "reg.line", conf.int = TRUE, 
-          cor.coef = TRUE, cor.method = "pearson",
-          xlab = "DESeq Normalized Intra_FLC-PDX", ylab = "Primary FLC", title = "Primary FLC tumor miRS vs FLC-PDX miRs")
-
-p
-```
-
-### Removed rows that equal 0
-```{r}
+#Move the column to rowname. this is necessary for the final clean up step of removing rows that contain at least 100 reads in either column
 flc.combined.deseq <- column_to_rownames(flc.combined.deseq, var = "miR")
-flc.clean <- flc.combined.deseq[rowSums(flc.combined.deseq[])>0,]
+flc.clean.100 <- flc.combined.deseq %>% 
+  filter_all(any_vars(. > 100))
+#this is done again with reads at least 50 reads in either column
+flc.clean.50 <- flc.combined.deseq %>% 
+  filter_all(any_vars(. > 50))
 ```
 
-### Plotted cleaned DEseq_dataframe with and without log10 transformation
-```{r}
-p2 <- ggscatter(flc.clean, x = "avg_Intra_FLC", y = "avg_PRI", 
+### Plots for primary FLC primary tumors with and without log10 transformation
+```{r primary tumor plots}
+p.pri.noclean <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "DESeq Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs FLC-PDX miRs") 
+          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRS vs FLC-PDX miRs")
 
-p3 <- ggscatter(flc.clean, x = "avg_Intra_FLC", y = "avg_PRI", 
+p.pri.100 <- ggscatter(flc.clean.100, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "log10 DESeq Intra_FLC", ylab = "log 10 Primary FLC", title = "log10(Primary FLC tumor miRs vs DESeq_FLC-PDX miRs)") +
+          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 100+ reads in at least one sample") 
+
+p.pri.100.log10 <- ggscatter(flc.clean.100, x = "avg_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "log10 FLC Spheroid", ylab = "log 10 Primary FLC", title = "log10(Primary FLC tumor miRs vs FLC Sphereoid miRs) 100+ reads in at least one sample") +
   scale_x_log10() +
   scale_y_log10()
 
-p2
-p3
-```
-
-#Work flow with RPMMM
-```{r}
-flc.combined.rpmmm <- full_join(flc.intra.rpmmm, flc.pri, by = "miR")
-flc.combined.rpmmm[is.na(flc.combined.rpmmm)] <- 0
-flc.combined.rpmmm <- column_to_rownames(flc.combined.rpmmm, var = "miR")
-flc.clean.rpmmm <- flc.combined.rpmmm[rowSums(flc.combined.rpmmm[])>0,]
-```
-
-```{r}
-p4 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+p.pri.50 <- ggscatter(flc.clean.50, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "RPMMM Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs") 
+          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 50+ reads in at least one sample") 
 
-p5 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+p.pri.50.log10 <- ggscatter(flc.clean.50, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "log10 RPMMM Normalized Intra_FLC", ylab = "log10 Primary FLC", title = "log10(Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs)") +
+          xlab = "log10 FLC Spheroid", ylab = "log 10 Primary FLC Tumor", title = "log10(Primary FLC tumor miRs vs DESeq_FLC Spheroid miRs) 50+ reads in at least one sample") +
+  scale_x_log10() +
+  scale_y_log10()
+
+p.pri.noclean
+p.pri.100
+p.pri.100.log10
+p.pri.50
+p.pri.50.log10
+```
+
+
+
+### Workflow with primary patient FLC metastatic tumors
+```{r making and cleaning met tables}
+#The steps here are similar to that seen in code chunk 4
+flc.combined.mets <- full_join(flc.mets, flc.sphereoids, by = "miR")
+flc.combined.mets[is.na(flc.combined.mets)] <- 0
+flc.combined.mets <- column_to_rownames(flc.combined.mets, var = "miR")
+flc.clean.mets.100 <- flc.combined.mets %>% 
+  filter_all(any_vars(. > 100))
+flc.clean.mets.50 <- flc.combined.mets %>% 
+  filter_all(any_vars(. > 50))
+```
+
+```{r metastatic tumor plots}
+p.met.noclean <- ggscatter(flc.combined.mets, x = "avg_Intra_FLC", y = "avg_MET", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "DESeq Normalized Intra_FLC-PDX", ylab = "Metastatic FLC Tumor", title = "Primary FLC tumor miRS vs FLC miRs")
+
+p.met.100 <- ggscatter(flc.clean.mets.100, x = "avg_Intra_FLC", y = "avg_MET", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 100+ reads in at least one sample") 
+
+p.met.100.log10 <- ggscatter(flc.clean.mets.100, x = "avg_Intra_FLC", y = "avg_MET", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "log10 FLC SpheroidC", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 100+ reads in at least one sample") +
   scale_x_log10() +
   scale_y_log10()
   
-p4
-p5
-```
-
-### Workflow with FLC-mets
-```{r}
-p6 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+p.met.50 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "RPMMM Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs") 
+          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 50+ reads in at least one sample")
 
-p7 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+p.met.50.log10 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "log10 RPMMM Normalized Intra_FLC", ylab = "log10 Primary FLC", title = "log10(Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs)") +
+          xlab = "log10 FLC SpheroidC", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 50+ reads in at least one sample") +
   scale_x_log10() +
   scale_y_log10()
-  
-p4
-p5
+
+p.met.noclean
+p.met.100
+p.met.100.log10
+p.met.50
+p.met.50.log10
 ```
 
 
 
+```{r ggsave}
+
+```
 
 
