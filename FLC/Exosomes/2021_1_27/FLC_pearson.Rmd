@@ -30,28 +30,30 @@ flc.mets <- flc.counts %>%
 ### Workflow with primary patient FLC primary tumors 
 ```{r making and cleaning primary tumor tables}
 #Join intracellular sphereoids miRs with primary tumor miRs
-flc.combined.deseq <- full_join(flc.sphereoids, flc.pri, by = "miR")
+flc.combined.pri <- full_join(flc.sphereoids, flc.pri, by = "miR")
 #change is.na rows to 0
-flc.combined.deseq[is.na(flc.combined.deseq)] <- 0
+flc.combined.pri[is.na(flc.combined.pri)] <- 0
 #Move the column to rowname. this is necessary for the final clean up step of removing rows that contain at least 100 reads in either column
-flc.combined.deseq <- column_to_rownames(flc.combined.deseq, var = "miR")
-flc.clean.100 <- flc.combined.deseq %>% 
-  filter_all(any_vars(. > 100))
+flc.combined.pri <- column_to_rownames(flc.combined.pri, var = "miR")
+flc.clean.100 <- flc.combined.pri %>% 
+  filter_all(any_vars(. > 100)) 
+write.csv(x = flc.clean.100, "PrimaryVsSpheroids100count.csv")
 #this is done again with reads at least 50 reads in either column
-flc.clean.50 <- flc.combined.deseq %>% 
+flc.clean.50 <- flc.combined.pri %>% 
   filter_all(any_vars(. > 50))
+write.csv(x = flc.clean.50, "PrimaryVsSpheroids50count.csv")
 ```
 
 ```{r filter genes that are most deviated from regression line of primary FLC tumors}
 most.dev.pri.genes <- flc.clean.100 %>% 
   rownames_to_column(var = "miR") %>% 
-  filter(miR %in% c("hsa-mir-122-5p", "hsa-mir-21-5p", "hsa-mir-320a", "hsa-mir-192-5p"))
+  filter(miR %in% c("hsa-mir-122-5p", "hsa-mir-21-5p", "hsa-mir-320a", "hsa-mir-192-5p", "hsa-mir-126-3p_+_2", "hsa-mir-323a-3p_-_1", "hsa-mir-654-3p", "hsa-mir-122-5p", "hsa-mir-204-5p", "hsa-mir-409-3p_-_1", "hsa-mir-5701-2_+_3", "hsa-mir-888-5p", "hsa-mir-892a", "hsa-mir-1248_+_1"))
 ```
 
 ### Plots for primary FLC primary tumors with and without log10 transformation
 ```{r primary tumor plots}
 set.seed(1)
-p.pri.noclean <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI", 
+p.pri.noclean <- ggscatter(flc.combined.pri, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRS vs FLC-PDX miRs")
@@ -108,8 +110,6 @@ p.pri.50
 p.pri.50.log10
 ```
 
-
-
 ### Workflow with primary patient FLC metastatic tumors
 ```{r making and cleaning met tables}
 #The steps here are similar to that seen in code chunk 4
@@ -117,15 +117,17 @@ flc.combined.mets <- full_join(flc.mets, flc.sphereoids, by = "miR")
 flc.combined.mets[is.na(flc.combined.mets)] <- 0
 flc.combined.mets <- column_to_rownames(flc.combined.mets, var = "miR")
 flc.clean.mets.100 <- flc.combined.mets %>% 
-  filter_all(any_vars(. > 100))
+  filter_all(any_vars(. > 100)) 
+write.csv(x = flc.clean.mets.100, "MetastaticVsSpheroids100count.csv")
 flc.clean.mets.50 <- flc.combined.mets %>% 
-  filter_all(any_vars(. > 50))
+  filter_all(any_vars(. > 50)) 
+write.csv(x = flc.clean.mets.50, "MetastaticVsSpheroids50count.csv")
 ```
 
 ```{r filter genes that are most deviated from regression line}
 most.dev.met.genes <- flc.clean.mets.100 %>% 
   rownames_to_column(var = "miR") %>% 
-  filter(miR %in% c("hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p","hsa-mir-26a-1-5p" , "hsa-mir-320a", "hsa-mir-192-5p"))
+  filter(miR %in% c("hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p","hsa-mir-26a-1-5p" , "hsa-mir-320a", "hsa-mir-192-5p", "hsa-mir-892a", "hsa-mir-888-5p", "hsa-mir-5701-1_+_3", "hsa-mir-5701-2_+_3", "hsa-mir-1248_+_1", "hsa-mir-423-5p_+_1", "hsa-mir-9-2-5p", "hsa-mir-9-3-5p"))
 ```
 
 
@@ -173,7 +175,7 @@ p.met.50 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET",
 p.met.50.log10 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "log10 FLC SpheroidC", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 50+ reads in at least one sample") +
+          xlab = "log10 FLC Spheroid", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 50+ reads in at least one sample") +
   scale_x_log10() +
   scale_y_log10() +
   geom_text_repel(data = most.dev.met.genes,
