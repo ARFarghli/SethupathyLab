@@ -17,10 +17,14 @@ library(ggpubr)
 library(tibble)
 ```
 ### Load CSV
-```{r load relevant csvs}
-flc.intra.deseq <- read.csv("FLC-PDX_DESeq_miRs.csv")
-flc.pri <- read.csv("PRI-mIRs.csv")
-flc.intra.rpmmm <- read.csv("FLC-PDX_RPMMM_miRs.csv")
+```{r load and create relevant csvs}
+flc.counts <- read.csv("../NML-PRI-MET_noDups_avg-normalized-counts-by-group.csv")
+flc.intra.sphereoids.deseq <- read.csv("FLC-PDX_DESeq_miRs.csv")
+flc.intra.sphereoids.rpmmm <- read.csv("FLC-PDX_RPMMM_miRs.csv")
+flc.pri <- flc.counts %>% 
+  select(miR, avg_PRI)
+flc.mets <- flc.counts %>% 
+  select(miR, avg_MET)
 ```
 
 ### Full join FLC primary tumor and FLC-PDX miRs (avg_DESeq). Changed is.na to 0
@@ -87,11 +91,23 @@ p4
 p5
 ```
 
-```{r ggsave}
+### Workflow with FLC-mets
+```{r}
+p6 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "RPMMM Normalized Intra_FLC", ylab = "Primary FLC", title = "Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs") 
 
+p7 <- ggscatter(flc.clean.rpmmm, x = "AVG_Intra_FLC", y = "avg_PRI", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "log10 RPMMM Normalized Intra_FLC", ylab = "log10 Primary FLC", title = "log10(Primary FLC tumor miRs vs RPMMM_FLC-PDX miRs)") +
+  scale_x_log10() +
+  scale_y_log10()
+  
+p4
+p5
 ```
-
-
 
 
 
