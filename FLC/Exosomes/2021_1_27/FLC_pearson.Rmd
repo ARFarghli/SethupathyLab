@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggpubr) 
 library(tibble)
+library(ggrepel)
 ```
 ### Load CSV
 ```{r load and create relevant csvs}
@@ -41,8 +42,15 @@ flc.clean.50 <- flc.combined.deseq %>%
   filter_all(any_vars(. > 50))
 ```
 
+```{r filter genes that are most deviated from regression line of primary FLC tumors}
+most.dev.pri.genes <- flc.clean.100 %>% 
+  rownames_to_column(var = "miR") %>% 
+  filter(miR %in% c("hsa-mir-122-5p", "hsa-mir-21-5p", "hsa-mir-320a", "hsa-mir-192-5p"))
+```
+
 ### Plots for primary FLC primary tumors with and without log10 transformation
 ```{r primary tumor plots}
+set.seed(1)
 p.pri.noclean <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
@@ -51,26 +59,47 @@ p.pri.noclean <- ggscatter(flc.combined.deseq, x = "avg_Intra_FLC", y = "avg_PRI
 p.pri.100 <- ggscatter(flc.clean.100, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 100+ reads in at least one sample") 
+          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 100+ reads in at least one sample") +
+  geom_label_repel(data = most.dev.pri.genes,
+                  aes(label = miR),
+                  size = 3,
+                  force = 100,
+                  nudge_y = -30000)
 
 p.pri.100.log10 <- ggscatter(flc.clean.100, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "log10 FLC Spheroid", ylab = "log 10 Primary FLC", title = "log10(Primary FLC tumor miRs vs FLC Sphereoid miRs) 100+ reads in at least one sample") +
   scale_x_log10() +
-  scale_y_log10()
+  scale_y_log10() +
+  geom_label_repel(data = most.dev.pri.genes,
+                  aes(label = miR),
+                  size = 3) +
+  geom_label_repel(data = most.dev.pri.genes,
+                  aes(label = miR),
+                  size = 3,
+                  nudge_y = -1)
 
 p.pri.50 <- ggscatter(flc.clean.50, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 50+ reads in at least one sample") 
+          xlab = "FLC Spheroid", ylab = "Primary FLC Tumor", title = "Primary FLC tumor miRs vs FLC Sphereoid miRs - 50+ reads in at least one sample") +
+  geom_label_repel(data = most.dev.pri.genes,
+                  aes(label = miR),
+                  size = 3,
+                  force = 100,
+                  nudge_y = -30000)
 
 p.pri.50.log10 <- ggscatter(flc.clean.50, x = "avg_Intra_FLC", y = "avg_PRI", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "log10 FLC Spheroid", ylab = "log 10 Primary FLC Tumor", title = "log10(Primary FLC tumor miRs vs DESeq_FLC Spheroid miRs) 50+ reads in at least one sample") +
   scale_x_log10() +
-  scale_y_log10()
+  scale_y_log10() +
+  geom_label_repel(data = most.dev.pri.genes,
+                  aes(label = miR),
+                  size = 3,
+                  nudge_y = -1)
 
 p.pri.noclean
 p.pri.100
@@ -93,7 +122,15 @@ flc.clean.mets.50 <- flc.combined.mets %>%
   filter_all(any_vars(. > 50))
 ```
 
+```{r filter genes that are most deviated from regression line}
+most.dev.met.genes <- flc.clean.mets.100 %>% 
+  rownames_to_column(var = "miR") %>% 
+  filter(miR %in% c("hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p","hsa-mir-26a-1-5p" , "hsa-mir-320a", "hsa-mir-192-5p"))
+```
+"hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p", "hsa-mir-21-5p", "hsa-mir-320a", "hsa-mir-192-5p"
+
 ```{r metastatic tumor plots}
+set.seed(1)
 p.met.noclean <- ggscatter(flc.combined.mets, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
@@ -102,26 +139,48 @@ p.met.noclean <- ggscatter(flc.combined.mets, x = "avg_Intra_FLC", y = "avg_MET"
 p.met.100 <- ggscatter(flc.clean.mets.100, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 100+ reads in at least one sample") 
+          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 100+ reads in at least one sample") +
+  geom_label_repel(data = most.dev.met.genes,
+                  aes(label = miR),
+                  size = 3,
+                  force = 100,
+                  nudge_x = 30000,
+                  nudge_y = 300000)
 
 p.met.100.log10 <- ggscatter(flc.clean.mets.100, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "log10 FLC SpheroidC", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 100+ reads in at least one sample") +
   scale_x_log10() +
-  scale_y_log10()
+  scale_y_log10() +
+  geom_text_repel(data = most.dev.met.genes,
+                   aes(label = miR),
+                   size = 3,
+                   force = 100,
+                   segment.size = 0.2)
   
 p.met.50 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 50+ reads in at least one sample")
+          xlab = "FLC Spheroid", ylab = "Metastatic FLC Tumor", title = "Metastatic FLC tumor miRs vs FLC sphereoids miRs - 50+ reads in at least one sample") +
+  geom_label_repel(data = most.dev.met.genes,
+                  aes(label = miR),
+                  size = 3,
+                  force = 100,
+                  nudge_x = 30000,
+                  nudge_y = 300000)
 
 p.met.50.log10 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "log10 FLC SpheroidC", ylab = "log10 Metastatic FLC Tumor", title = "log10(Metastatic FLC tumor miRs vs _FLC sphereoids miRs) 50+ reads in at least one sample") +
   scale_x_log10() +
-  scale_y_log10()
+  scale_y_log10() +
+  geom_text_repel(data = most.dev.met.genes,
+                   aes(label = miR),
+                   size = 3,
+                   force = 100,
+                   segment.size = 0.2)
 
 p.met.noclean
 p.met.100
