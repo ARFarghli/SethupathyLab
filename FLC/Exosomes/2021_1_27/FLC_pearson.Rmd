@@ -127,7 +127,7 @@ most.dev.met.genes <- flc.clean.mets.100 %>%
   rownames_to_column(var = "miR") %>% 
   filter(miR %in% c("hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p","hsa-mir-26a-1-5p" , "hsa-mir-320a", "hsa-mir-192-5p"))
 ```
-"hsa-mir-21-5p", "hsa-mir-122-5p", "hsa-mir-143-3p", "hsa-mir-21-5p", "hsa-mir-320a", "hsa-mir-192-5p"
+
 
 ```{r metastatic tumor plots}
 set.seed(1)
@@ -154,10 +154,10 @@ p.met.100.log10 <- ggscatter(flc.clean.mets.100, x = "avg_Intra_FLC", y = "avg_M
   scale_x_log10() +
   scale_y_log10() +
   geom_text_repel(data = most.dev.met.genes,
-                   aes(label = miR),
-                   size = 3,
-                   force = 100,
-                   segment.size = 0.2)
+                  aes(label = miR),
+                  size = 3,
+                  force = 100,
+                  nudge_y = .5)
   
 p.met.50 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET", 
           add = "reg.line", conf.int = TRUE, 
@@ -180,7 +180,7 @@ p.met.50.log10 <- ggscatter(flc.clean.mets.50, x = "avg_Intra_FLC", y = "avg_MET
                    aes(label = miR),
                    size = 3,
                    force = 100,
-                   segment.size = 0.2)
+                  nudge_y = .5)
 
 p.met.noclean
 p.met.100
