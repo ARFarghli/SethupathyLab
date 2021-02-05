@@ -16,6 +16,7 @@ library(dplyr)
 library(ggpubr) 
 library(tibble)
 library(ggrepel)
+library(ggplot2)
 ```
 ### Load CSV
 ```{r load and create relevant csvs}
@@ -194,7 +195,16 @@ p.met.50.log10
 
 
 ```{r ggsave}
-
+ggsave(p.pri.noclean, filename = "PrimaryVsSpheroid_noclean.png")
+ggsave(p.pri.100, filename = "PrimaryVsSpheroid_100.png")
+ggsave(p.pri.100.log10, filename = "PrimaryVsSpheroid_log100.png")
+ggsave(p.pri.50, filename = "PrimaryVsSpheroid_50.png")
+ggsave(p.pri.50.log10, filename = "PrimaryVsSpheroidlog50.png")
+ggsave(p.met.noclean, filename = "MetsVsSpheroid_noclean.png")
+ggsave(p.met.100, filename = "MetsVsSpheroid_100.png")
+ggsave(p.met.100.log10, filename = "MetsVsSpheroid_log100.png")
+ggsave(p.met.50, filename = "MetsVsSpheroid_50.png")
+ggsave(p.met.50.log10, filename = "MetsVsSpheroid_log50.png")
 ```
 
 
