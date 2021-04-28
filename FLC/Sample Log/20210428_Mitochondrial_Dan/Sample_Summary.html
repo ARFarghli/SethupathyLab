@@ -470,8 +470,129 @@ table(chro_only_df$individual, chro_only_df$`Cancer Status`)  </code></pre>
 <div id="check-for-individual-samples-flc-or-nml-with-both-chro-rna" class="section level3">
 <h3>Check for individual samples (FLC or NML) with both ChRO + RNA</h3>
 <pre class="r"><code>sample_matched.data &lt;- sample_log %&gt;% 
-  select(&quot;Sample&quot;, &quot;ChRO-seq&quot;, &quot;ChROseq included in Cell Reports&quot;, &quot;FLCs sequenced with (mRNA)&quot;, &quot;mRNA included in Cell Reports&quot;) %&gt;% 
-  filter(`ChROseq included in Cell Reports` == &quot;Y&quot; &amp; `mRNA included in Cell Reports` == &quot;Y&quot;)</code></pre>
+  select(&quot;Sample&quot;, &quot;Cancer Status&quot;, &quot;ChRO-seq&quot;, &quot;ChROseq included in Cell Reports&quot;, &quot;FLCs sequenced with (mRNA)&quot;, &quot;mRNA included in Cell Reports&quot;) %&gt;% 
+  filter(`ChROseq included in Cell Reports` == &quot;Y&quot; &amp; `mRNA included in Cell Reports` == &quot;Y&quot;)
+kable(sample_matched.data)</code></pre>
+<table>
+<colgroup>
+<col width="8%"></col>
+<col width="11%"></col>
+<col width="7%"></col>
+<col width="26%"></col>
+<col width="21%"></col>
+<col width="24%"></col>
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Sample</th>
+<th align="left">Cancer Status</th>
+<th align="left">ChRO-seq</th>
+<th align="left">ChROseq included in Cell Reports</th>
+<th align="left">FLCs sequenced with (mRNA)</th>
+<th align="left">mRNA included in Cell Reports</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">FLC07_LFOC</td>
+<td align="left">FLC</td>
+<td align="left">batch1</td>
+<td align="left">Y</td>
+<td align="left">Batch 4</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC09_MUOD</td>
+<td align="left">FLC</td>
+<td align="left">batch1</td>
+<td align="left">Y</td>
+<td align="left">Batch 5</td>
+<td align="left">Y</td>
+</tr>
+<tr class="odd">
+<td align="left">FLC09_TZOG</td>
+<td align="left">NML</td>
+<td align="left">batch1</td>
+<td align="left">Y</td>
+<td align="left">Batch 5</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC17_WCKN</td>
+<td align="left">FLC</td>
+<td align="left">batch2</td>
+<td align="left">Y</td>
+<td align="left">Batch 6</td>
+<td align="left">Y</td>
+</tr>
+<tr class="odd">
+<td align="left">FLC18_FXYQ</td>
+<td align="left">FLC</td>
+<td align="left">Batch-5</td>
+<td align="left">Y</td>
+<td align="left">Batch 6</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC18_MKZC</td>
+<td align="left">FLC</td>
+<td align="left">Batch-5</td>
+<td align="left">Y</td>
+<td align="left">Batch 6</td>
+<td align="left">Y</td>
+</tr>
+<tr class="odd">
+<td align="left">FLC20_ZDNV</td>
+<td align="left">FLC</td>
+<td align="left">Batch-3</td>
+<td align="left">Y</td>
+<td align="left">Batch 6</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC25_UYHR</td>
+<td align="left">FLC</td>
+<td align="left">Batch-4</td>
+<td align="left">Y</td>
+<td align="left">Batch 7</td>
+<td align="left">Y</td>
+</tr>
+<tr class="odd">
+<td align="left">FLC26_OAOE</td>
+<td align="left">FLC</td>
+<td align="left">Batch-5</td>
+<td align="left">Y</td>
+<td align="left">Batch 7</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC26_YJEE</td>
+<td align="left">FLC</td>
+<td align="left">Batch-4</td>
+<td align="left">Y</td>
+<td align="left">Batch 7</td>
+<td align="left">Y</td>
+</tr>
+<tr class="odd">
+<td align="left">FLC27_BWSX</td>
+<td align="left">NML</td>
+<td align="left">Batch-4</td>
+<td align="left">Y</td>
+<td align="left">Batch 7</td>
+<td align="left">Y</td>
+</tr>
+<tr class="even">
+<td align="left">FLC27_XDGP</td>
+<td align="left">FLC</td>
+<td align="left">Batch-5</td>
+<td align="left">Y</td>
+<td align="left">Batch 7</td>
+<td align="left">Y</td>
+</tr>
+</tbody>
+</table>
+<p>These are all the patient samples that contain both RNA-seq and ChRO-seq. Of these, two sets are matched: <strong>FLC09 and FLC27</strong>.</p>
+<hr />
 </div>
 
 

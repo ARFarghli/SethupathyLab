@@ -61,7 +61,6 @@ both <- sample_log %>%
   filter(Sample %in% both_rna_chro)
 
 table(both$individual, both$`Cancer Status`)  
-
 ```
 
 For samples that have both ChROseq and RNAseq data, only **FLC09 (FLC09_MUOD & FLC_TZOG)** and **FLC27 (FLC27_XDGP & FLC27_BWSX)** have an NML and FLC sample.
@@ -76,7 +75,6 @@ rna_only_df <- sample_log %>%
   filter(Sample %in% rna_only)
 
 table(rna_only_df$individual, rna_only_df$`Cancer Status`)  
-
 ```
 
 For samples that are only present in the RNAseq data, only **FLC06 (FLC06_GMKX, FLC06_DZIS, FLC06_UFNW, & FLC06_SLVP)** and **FLC34 (FLC34_YROP & FLC34_PMVV)** have an NML and FLC sample.
@@ -86,12 +84,10 @@ For samples that are only present in the RNAseq data, only **FLC06 (FLC06_GMKX, 
 ### Check for paired individual samples in the ChROseq only sample set
 
 ```{r check chro only, message = F, warning = F}
-
 chro_only_df <- sample_log %>%
   filter(Sample %in% chro_only)
 
 table(chro_only_df$individual, chro_only_df$`Cancer Status`)  
-
 ```
 
 None of the ChROseq only samples have paired NML/FLC.
@@ -102,9 +98,12 @@ None of the ChROseq only samples have paired NML/FLC.
 
 ```{r}
 sample_matched.data <- sample_log %>% 
-  select("Sample", "ChRO-seq", "ChROseq included in Cell Reports", "FLCs sequenced with (mRNA)", "mRNA included in Cell Reports") %>% 
+  select("Sample", "Cancer Status", "ChRO-seq", "ChROseq included in Cell Reports", "FLCs sequenced with (mRNA)", "mRNA included in Cell Reports") %>% 
   filter(`ChROseq included in Cell Reports` == "Y" & `mRNA included in Cell Reports` == "Y")
 kable(sample_matched.data)
 ```
+These are all the patient samples that contain both RNA-seq and ChRO-seq.
+Of these, two sets are matched: **FLC09 and FLC27**.
 
+---
 
