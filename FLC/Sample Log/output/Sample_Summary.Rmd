@@ -1,0 +1,100 @@
+---
+title: "Summarize samples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries, echo = F, message=F, warning=F}
+library(tidyverse)
+
+setwd("~/Dropbox/praveen/programming/requests/2021_04_FLCmito_Alaa/")
+```
+
+
+
+### Load data
+
+```{r load data, message = F, warning = F}
+
+### This is the full primary sample log
+sample_log <- read_csv('~/Dropbox/praveen/projects-papers/FLC_no-duplicates/sample_summary/FLC Primary Sample Log.csv') %>%
+  separate(Sample, c("individual", "string"), sep = "_", remove = F)
+
+### This is the ChROseq table from Tim's Cell Reports paper
+chro_samples <- read_csv("ChROseq_samples.csv")
+chro_samples <- substr(names(chro_samples)[-1], 5, 14)
+
+### These are the RNAseq samples
+rna <- read_tsv("~/Dropbox/praveen/sequencing_projects/rnaseq/2020_02_FLC/pFLC01-34_CountTable_DESeq2Normalized_noTCGA_20200202.txt")
+rna_samples = names(rna)[-1]
+```
+
+---
+
+### Check which samples are in both RNAseq and ChROseq and which are unique
+
+```{r overlap, message = F, warning = F}
+
+### ChROseq and RNAseq samples
+both_rna_chro <- intersect(chro_samples, rna_samples)
+rna_only <- setdiff(rna_samples, chro_samples)
+chro_only <- setdiff(chro_samples, rna_samples)
+
+```
+
+These are shared samples: **`r both_rna_chro`**
+
+These are rna only: **`r rna_only`**
+
+These are chro only: **`r chro_only`**
+
+---
+
+### Check for paired individual samples in the RNAseq & ChROseq sample set
+
+```{r check both, message = F, warning = F}
+
+both <- sample_log %>%
+  filter(Sample %in% both_rna_chro)
+
+table(both$individual, both$`Cancer Status`)  
+
+```
+
+For samples that have both ChROseq and RNAseq data, only **FLC09 (FLC09_MUOD & FLC_TZOG)** and **FLC27 (FLC27_XDGP & FLC27_BWSX)** have an NML and FLC sample.
+
+---
+
+### Check for paired individual samples in the RNAseq only set
+
+```{r check rna only, message = F, warning = F}
+
+rna_only_df <- sample_log %>%
+  filter(Sample %in% rna_only)
+
+table(rna_only_df$individual, rna_only_df$`Cancer Status`)  
+
+```
+
+For samples that are only present in the RNAseq data, only **FLC06 (FLC06_GMKX, FLC06_DZIS, FLC06_UFNW, & FLC06_SLVP)** and **FLC34 (FLC34_YROP & FLC34_PMVV)** have an NML and FLC sample.
+
+---
+
+### Check for paired individual samples in the ChROseq only sample set
+
+```{r check chro only, message = F, warning = F}
+
+chro_only_df <- sample_log %>%
+  filter(Sample %in% chro_only)
+
+table(chro_only_df$individual, chro_only_df$`Cancer Status`)  
+
+```
+
+None of the ChROseq only samples have paired NML/FLC.
+
+---
+
