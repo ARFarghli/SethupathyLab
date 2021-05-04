@@ -7,19 +7,21 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r install and load libraries, eval = F, echo = F, message = F, warning = F}
+```{r install and load libraries, echo = F, message = F, warning = F}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
 library(ArchR)
 ArchR::installExtraPackages()
 set.seed(1)
+
+#set threads specific to your machine
 addArchRThreads(threads = 2) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
 
-```{r download tutorial data and add genome, eval=FALSE}
+```{r download tutorial data and add genome}
 inputFiles <- getTutorialData("Hematopoiesis")
 inputFiles
 addArchRGenome("hg19")
@@ -29,7 +31,7 @@ addArchRGenome("hg19")
 
 ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
 
-```{r create arrowfiles, eval=FALSE}
+```{r create arrowfiles}
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
@@ -48,7 +50,7 @@ Quality Control of scATAC-seq data is essential to remove cells that contribute 
 3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).
 
 ArchR also infers doublets, a single droplet that contains multiple cells.
-```{r infer doublets, eval=FALSE}
+```{r infer doublets}
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
@@ -58,7 +60,7 @@ doubScores <- addDoubletScores(
 ```
 
 ###Creating an ArchRProject
-```{r Create ArchRProject and filter, eval=FALSE}
+```{r Create ArchRProject and filter}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
@@ -74,7 +76,7 @@ proj <- filterDoublets(ArchRProj = proj)
 
 ###Dimensionality Reduction and Clustering
 
-```{r Dimensionality Reduction, UMAP Generation and Visualization, eval=FALSE}
+```{r Dimensionality Reduction, UMAP Generation and Visualization}
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
 
@@ -96,9 +98,9 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
 
 ###Assigning Clusters with Gene Scores
 
-The novelty of singel cell approaches is to be able to resolve cellular heterogenity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
+The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
 
-```{r, eval=FALSE}
+```{r Assign genes to clusters}
 #First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
 proj <- addImputeWeights(proj)
 
@@ -142,7 +144,6 @@ plotPDF(plotList = p,
     ArchRProj = proj, 
     addDOC = FALSE, width = 5, height = 5)
 ```
-
 
 
 
