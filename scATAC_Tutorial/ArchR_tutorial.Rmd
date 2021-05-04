@@ -16,7 +16,7 @@ ArchR::installExtraPackages()
 set.seed(1)
 
 #set threads specific to your machine
-addArchRThreads(threads = 2) 
+addArchRThreads(threads = 20) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
