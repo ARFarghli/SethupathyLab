@@ -14,7 +14,9 @@ devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager
 library(ArchR)
 ArchR::installExtraPackages()
 set.seed(1)
+```
 
+```{r}
 #set threads specific to your machine
 addArchRThreads(threads = 2) 
 ```
