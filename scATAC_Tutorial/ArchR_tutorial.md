@@ -174,7 +174,7 @@ proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d4ecca1d4-Date-2021-05-05_Time-16-27-02.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-8d195b440d92-Date-2021-05-05_Time-16-33-47.log
     ## If there is an issue, please report to github with logFile!
 
     ## Getting UMAP Embedding
@@ -184,19 +184,19 @@ p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", 
     ## Plotting Embedding
 
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d4ecca1d4-Date-2021-05-05_Time-16-27-02.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-8d195b440d92-Date-2021-05-05_Time-16-33-47.log
 
 ``` r
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d77691919-Date-2021-05-05_Time-16-27-02.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-8d195661d991-Date-2021-05-05_Time-16-33-48.log
     ## If there is an issue, please report to github with logFile!
     ## Getting UMAP Embedding
     ## ColorBy = cellColData
     ## Plotting Embedding
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d77691919-Date-2021-05-05_Time-16-27-02.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-8d195661d991-Date-2021-05-05_Time-16-33-48.log
 
 ``` r
 ggAlignPlots(p1, p2, type = "h")
@@ -222,14 +222,7 @@ assigning cell-type specific markers to them.
 ``` r
 #First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
 proj <- addImputeWeights(proj)
-```
 
-    ## ArchR logging to : ArchRLogs/ArchR-addImputeWeights-637d2a1b3729-Date-2021-05-05_Time-16-27-09.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## 2021-05-05 16:27:09 : Computing Impute Weights Using Magic (Cell 2018), 0 mins elapsed.
-
-``` r
 #Now we can overlay our marker gene scores on our 2D UMAP embedding.
 markerGenes  <- c(
     "CD34",  #Early Progenitor
@@ -250,42 +243,12 @@ p <- plotEmbedding(
 )
 ```
 
-    ## Getting ImputeWeights
-
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d5f719a8-Date-2021-05-05_Time-16-27-15.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## Getting UMAP Embedding
-
-    ## ColorBy = GeneScoreMatrix
-
-    ## Getting Matrix Values...
-
-    ## 2021-05-05 16:27:15 :
-
-    ## 
-
-    ## Imputing Matrix
-
-    ## Using weights on disk
-
-    ## 1 of 1
-
-    ## Using weights on disk
-
-    ## 1 of 1
-
-    ## Plotting Embedding
-
-    ## 1 2 3 4 5 6 7 8 9 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d5f719a8-Date-2021-05-05_Time-16-27-15.log
-
 ``` r
 #To plot a specific gene we can subset this plot list using the gene name.
 p$CD14
 ```
 
-![](ArchR_tutorial_files/figure-gfm/Make%20plots-1.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 ``` r
 #Plot all genes defined in markerGenes
@@ -303,7 +266,7 @@ p2 <- lapply(p, function(x){
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 ```
 
-![](ArchR_tutorial_files/figure-gfm/Make%20plots-2.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
 
 ``` r
 #Save an editable PDF version

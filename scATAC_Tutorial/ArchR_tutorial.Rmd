@@ -109,7 +109,7 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
 
 The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
 
-```{r Assign genes to clusters}
+```{r Assign genes to clusters, message = FALSE, cache = TRUE}
 #First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
 proj <- addImputeWeights(proj)
 
@@ -131,7 +131,9 @@ p <- plotEmbedding(
     embedding = "UMAP",
     imputeWeights = getImputeWeights(proj)
 )
+```
 
+```{r}
 #To plot a specific gene we can subset this plot list using the gene name.
 p$CD14
 
