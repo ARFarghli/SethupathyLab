@@ -24,18 +24,10 @@ addArchRThreads(threads = 20)
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
 
 ```{r download tutorial data and add genome}
-inputFiles <- getTutorialData("Hematopoiesis")
+inputFiles <- getTutorialData(tutorial = "Hematopoiesis")
 inputFiles
 addArchRGenome("hg19")
 ```
-3 function calls resulted in an errorError in .safelapply(seq_along(filesUrl), function(x) { : 
-Error Found Iteration 1 : 
-	[1] "Error in download.file(url = filesUrl[x], destfile = file.path(\"HemeFragments\",  : \n  cannot open URL 'https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_BMMC_R1.fragments.tsv.gz'\n"
-	<simpleError in download.file(url = filesUrl[x], destfile = file.path("HemeFragments",     basename(filesUrl[x]))): cannot open URL 'https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_BMMC_R1.fragments.tsv.gz'>
-Error Found Iteration 2 : 
-	[1] "Error in download.file(url = filesUrl[x], destfile = file.path(\"HemeFragments\",  : \n  cannot open URL 'https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_CD34_BMMC_R1.fragments.tsv.gz'\n"
-	<simpleError in download.file(url = filesUrl[x], destfile = file.path("HemeFragments",     basename(filesUrl[x]))): cannot open URL 'https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_CD34_BMMC_R1.fragments.tsv.gz'>
-Error Found Iteration 3 : 
 ### Creating Arrow Files
 
 ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
@@ -44,8 +36,8 @@ ArchR uses arrow files, the base unit of an ArchR analytical project. Every arro
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
-  filterTSS = 4, #Dont set this too high because you can always increase later
-  filterFrags = 1000, 
+  minTSS = 4, #Dont set this too high because you can always increase later
+  minFrags = 1000, 
   addTileMat = TRUE,
   addGeneScoreMat = TRUE
 )
