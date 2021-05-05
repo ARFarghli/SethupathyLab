@@ -7,7 +7,7 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r eval = FALSE}
+```{r eval = FALSE, include = FALSE}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
@@ -64,8 +64,8 @@ doubScores <- addDoubletScores(
 )
 ```
 
-###Creating an ArchRProject
-```{r Create ArchRProject, cache = TRUE}
+### Creating an ArchRProject
+```{r Create ArchRProject, message = FALSE, cache = TRUE}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
@@ -81,7 +81,7 @@ getAvailableMatrices(proj)
 proj <- filterDoublets(ArchRProj = proj)
 ```
 
-###Dimensionality Reduction and Clustering
+### Dimensionality Reduction and Clustering
 
 ```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
@@ -99,13 +99,15 @@ proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ggAlignPlots(p1, p2, type = "h")
+```
 
+```{r message = FALSE}
 #To save an editable vectorized version of this plot, we use the plotPDF() function.
 plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
         ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
 ```
 
-###Assigning Clusters with Gene Scores
+### Assigning Clusters with Gene Scores
 
 The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
 
@@ -150,7 +152,9 @@ p2 <- lapply(p, function(x){
     )
 })
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
+```
 
+```{r, message=FALSE}
 #Save an editable PDF version
 plotPDF(plotList = p, 
     name = "Plot-UMAP-Marker-Genes-W-Imputation.pdf", 

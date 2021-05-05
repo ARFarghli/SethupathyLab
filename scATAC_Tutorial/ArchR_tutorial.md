@@ -2,13 +2,6 @@ scATAC Tutorial
 ================
 
 ``` r
-if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
-ArchR::installExtraPackages()
-```
-
-``` r
 #set threads specific to your machine
 addArchRThreads(threads = 35) 
 ```
@@ -82,7 +75,7 @@ doubScores <- addDoubletScores(
 )
 ```
 
-\#\#\#Creating an ArchRProject
+### Creating an ArchRProject
 
 ``` r
 proj <- ArchRProject(
@@ -91,46 +84,6 @@ proj <- ArchRProject(
   copyArrows = TRUE #This is recommened so that you maintain an unaltered copy for later usage.
 )
 ```
-
-    ## Using GeneAnnotation set by addArchRGenome(Hg19)!
-    ## Using GeneAnnotation set by addArchRGenome(Hg19)!
-
-    ## Validating Arrows...
-
-    ## Getting SampleNames...
-
-    ## 
-
-    ## Copying ArrowFiles to Ouptut Directory! If you want to save disk space set copyArrows = FALSE
-
-    ## 1 2 
-    ## Getting Cell Metadata...
-    ## 
-    ## Merging Cell Metadata...
-    ## Initializing ArchRProject...
-    ## 
-    ##                                                    / |
-    ##                                                  /    \
-    ##             .                                  /      |.
-    ##             \\\                              /        |.
-    ##               \\\                          /           `|.
-    ##                 \\\                      /              |.
-    ##                   \                    /                |\
-    ##                   \\#####\           /                  ||
-    ##                 ==###########>      /                   ||
-    ##                  \\##==......\    /                     ||
-    ##             ______ =       =|__ /__                     ||      \\\
-    ##         ,--' ,----`-,__ ___/'  --,-`-===================##========>
-    ##        \               '        ##_______ _____ ,--,__,=##,__   ///
-    ##         ,    __==    ___,-,__,--'#'  ==='      `-'    | ##,-/
-    ##         -,____,---'       \\####\\________________,--\\_##,/
-    ##            ___      .______        ______  __    __  .______      
-    ##           /   \     |   _  \      /      ||  |  |  | |   _  \     
-    ##          /  ^  \    |  |_)  |    |  ,----'|  |__|  | |  |_)  |    
-    ##         /  /_\  \   |      /     |  |     |   __   | |      /     
-    ##        /  _____  \  |  |\  \\___ |  `----.|  |  |  | |  |\  \\___.
-    ##       /__/     \__\ | _| `._____| \______||__|  |__| | _| `._____|
-    ## 
 
 ``` r
 #We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
@@ -144,7 +97,7 @@ getAvailableMatrices(proj)
 proj <- filterDoublets(ArchRProj = proj)
 ```
 
-\#\#\#Dimensionality Reduction and Clustering
+### Dimensionality Reduction and Clustering
 
 ``` r
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
@@ -157,10 +110,10 @@ proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
     ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
     ## 
     ## Number of nodes: 5132
-    ## Number of edges: 311598
+    ## Number of edges: 310127
     ## 
     ## Running Louvain algorithm...
-    ## Maximum modularity in 10 random starts: 0.8194
+    ## Maximum modularity in 10 random starts: 0.8165
     ## Number of communities: 9
     ## Elapsed time: 0 seconds
 
@@ -174,7 +127,7 @@ proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-8d195b440d92-Date-2021-05-05_Time-16-33-47.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-9af566fc8ef3-Date-2021-05-05_Time-16-47-21.log
     ## If there is an issue, please report to github with logFile!
 
     ## Getting UMAP Embedding
@@ -184,19 +137,19 @@ p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", 
     ## Plotting Embedding
 
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-8d195b440d92-Date-2021-05-05_Time-16-33-47.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-9af566fc8ef3-Date-2021-05-05_Time-16-47-21.log
 
 ``` r
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-8d195661d991-Date-2021-05-05_Time-16-33-48.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-9af53110edc5-Date-2021-05-05_Time-16-47-21.log
     ## If there is an issue, please report to github with logFile!
     ## Getting UMAP Embedding
     ## ColorBy = cellColData
     ## Plotting Embedding
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-8d195661d991-Date-2021-05-05_Time-16-33-48.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-9af53110edc5-Date-2021-05-05_Time-16-47-21.log
 
 ``` r
 ggAlignPlots(p1, p2, type = "h")
@@ -210,10 +163,7 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
         ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
 ```
 
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-
-\#\#\#Assigning Clusters with Gene Scores
+### Assigning Clusters with Gene Scores
 
 The novelty of single cell approaches is to be able to resolve cellular
 heterogeneity in complex tissues. We can identify cells population by
@@ -248,7 +198,7 @@ p <- plotEmbedding(
 p$CD14
 ```
 
-![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ``` r
 #Plot all genes defined in markerGenes
@@ -266,7 +216,7 @@ p2 <- lapply(p, function(x){
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 ```
 
-![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
 
 ``` r
 #Save an editable PDF version
@@ -275,13 +225,3 @@ plotPDF(plotList = p,
     ArchRProj = proj, 
     addDOC = FALSE, width = 5, height = 5)
 ```
-
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
-    ## Plotting Ggplot!
