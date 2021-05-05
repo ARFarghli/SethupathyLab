@@ -1,13 +1,14 @@
 ---
 title: "scATAC Tutorial"
 output: github_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r eval=FALSE}
+```{r eval = FALSE}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
@@ -20,7 +21,7 @@ library(ArchR)
 set.seed(1)
 ```
 
-```{r}
+```{r message = F, warning = F}
 #set threads specific to your machine
 addArchRThreads(threads = 35) 
 ```
@@ -36,7 +37,7 @@ addArchRGenome(genome = "hg19", install = FALSE)
 
 ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
 
-```{r create arrowfiles}
+```{r create arrowfiles, message = F, warning = F}
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
@@ -55,7 +56,7 @@ Quality Control of scATAC-seq data is essential to remove cells that contribute 
 3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).
 
 ArchR also infers doublets, a single droplet that contains multiple cells.
-```{r infer doublets}
+```{r infer doublets, message = F, warning = F, results = 'hide'}
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
@@ -65,13 +66,15 @@ doubScores <- addDoubletScores(
 ```
 
 ###Creating an ArchRProject
-```{r Create ArchRProject and filter}
+```{r Create ArchRProject}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
   copyArrows = TRUE #This is recommened so that you maintain an unaltered copy for later usage.
 )
+```
 
+```{r Filter ArchRProject, message = F, warning = F}
 #We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
 getAvailableMatrices(proj)
 
@@ -81,7 +84,7 @@ proj <- filterDoublets(ArchRProj = proj)
 
 ###Dimensionality Reduction and Clustering
 
-```{r Dimensionality Reduction, UMAP Generation and Visualization}
+```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F}
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
 
@@ -90,7 +93,9 @@ proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
 
 #We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
+```
 
+```{r UMAP Visualization}
 #We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
@@ -117,7 +122,9 @@ markerGenes  <- c(
     "CD14", "MPO", #Monocytes
     "CD3D", "CD8A"#TCells
   )
+```
 
+```{r Make plots}
 p <- plotEmbedding(
     ArchRProj = proj, 
     colorBy = "GeneScoreMatrix", 
