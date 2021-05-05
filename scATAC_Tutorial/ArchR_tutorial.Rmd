@@ -7,18 +7,22 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r install and load libraries, echo = F, message = F, warning = F}
+```{r eval=FALSE}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
-library(ArchR)
 ArchR::installExtraPackages()
+```
+
+
+```{r install and load libraries, echo = F, message = F, warning = F}
+library(ArchR)
 set.seed(1)
 ```
 
 ```{r}
 #set threads specific to your machine
-addArchRThreads(threads = 20) 
+addArchRThreads(threads = 35) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
@@ -26,7 +30,7 @@ We need a reference genome for downstream analyses. ArchR natively supports hg19
 ```{r download tutorial data and add genome}
 inputFiles <- getTutorialData(tutorial = "Hematopoiesis")
 inputFiles
-addArchRGenome("hg19")
+addArchRGenome(genome = "hg19", install = FALSE)
 ```
 ### Creating Arrow Files
 
