@@ -1,7 +1,6 @@
 ---
 title: "scATAC Tutorial"
 output: github_document
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -37,7 +36,7 @@ addArchRGenome(genome = "hg19", install = FALSE)
 
 ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
 
-```{r create arrowfiles, message = F, warning = F}
+```{r create arrowfiles, message = F, warning = F, cache = TRUE}
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
@@ -56,7 +55,7 @@ Quality Control of scATAC-seq data is essential to remove cells that contribute 
 3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).
 
 ArchR also infers doublets, a single droplet that contains multiple cells.
-```{r infer doublets, message = F, warning = F, results = 'hide'}
+```{r infer doublets, message = F, warning = F, results = 'hide', cache = TRUE}
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
@@ -66,7 +65,7 @@ doubScores <- addDoubletScores(
 ```
 
 ###Creating an ArchRProject
-```{r Create ArchRProject}
+```{r Create ArchRProject, cache = TRUE}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
@@ -74,7 +73,7 @@ proj <- ArchRProject(
 )
 ```
 
-```{r Filter ArchRProject, message = F, warning = F}
+```{r Filter ArchRProject, message = F, warning = F, cache = TRUE}
 #We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
 getAvailableMatrices(proj)
 
@@ -84,7 +83,7 @@ proj <- filterDoublets(ArchRProj = proj)
 
 ###Dimensionality Reduction and Clustering
 
-```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F}
+```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
 
@@ -124,7 +123,7 @@ markerGenes  <- c(
   )
 ```
 
-```{r Make plots}
+```{r Make plots, message = FALSE}
 p <- plotEmbedding(
     ArchRProj = proj, 
     colorBy = "GeneScoreMatrix", 

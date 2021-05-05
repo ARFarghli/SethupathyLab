@@ -13,8 +13,6 @@ ArchR::installExtraPackages()
 addArchRThreads(threads = 35) 
 ```
 
-    ## Setting default number of Parallel threads to 35.
-
 We need a reference genome for downstream analyses. ArchR natively
 supports hg19, hg38, mm9, and mm10.
 
@@ -56,28 +54,6 @@ ArrowFiles <- createArrowFiles(
   addTileMat = TRUE,
   addGeneScoreMat = TRUE
 )
-```
-
-    ## Using GeneAnnotation set by addArchRGenome(Hg19)!
-    ## Using GeneAnnotation set by addArchRGenome(Hg19)!
-
-    ## ArchR logging to : ArchRLogs/ArchR-createArrows-25d241aa0385-Date-2021-05-05_Time-15-22-12.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## Cleaning Temporary Files
-
-    ## 2021-05-05 15:22:12 : Batch Execution w/ safelapply!, 0 mins elapsed.
-
-    ## Warning in mclapply(..., mc.cores = threads, mc.preschedule = preschedule): 1
-    ## function calls resulted in an error
-
-    ## createArrowFiles has encountered an error, checking if any ArrowFiles completed..
-
-    ## 2021-05-05 15:22:18 :
-
-    ## ArchR logging successful to : ArchRLogs/ArchR-createArrows-25d241aa0385-Date-2021-05-05_Time-15-22-12.log
-
-``` r
 #We can inspect the ArrowFiles object to see that it is actually just a character vector of Arrow file paths.
 ArrowFiles
 ```
@@ -105,25 +81,6 @@ doubScores <- addDoubletScores(
   LSIMethod = 1
 )
 ```
-
-    ## ArchR logging to : ArchRLogs/ArchR-addDoubletScores-25d22c37ea28-Date-2021-05-05_Time-15-22-18.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## 2021-05-05 15:22:18 : Batch Execution w/ safelapply!, 0 mins elapsed.
-
-    ## 2021-05-05 15:22:18 : scATAC_PBMC_R1 (1 of 2) :  Computing Doublet Statistics, 0 mins elapsed.
-
-    ## scATAC_PBMC_R1 (1 of 2) : UMAP Projection R^2 = 0.99262
-
-    ## scATAC_PBMC_R1 (1 of 2) : UMAP Projection R^2 = 0.99262
-
-    ## 2021-05-05 15:23:45 : scATAC_CD34_BMMC_R1 (2 of 2) :  Computing Doublet Statistics, 1.442 mins elapsed.
-
-    ## scATAC_CD34_BMMC_R1 (2 of 2) : UMAP Projection R^2 = 0.98225
-
-    ## scATAC_CD34_BMMC_R1 (2 of 2) : UMAP Projection R^2 = 0.98225
-
-    ## ArchR logging successful to : ArchRLogs/ArchR-addDoubletScores-25d22c37ea28-Date-2021-05-05_Time-15-22-18.log
 
 \#\#\#Creating an ArchRProject
 
@@ -187,146 +144,65 @@ getAvailableMatrices(proj)
 proj <- filterDoublets(ArchRProj = proj)
 ```
 
-    ## Filtering 139 cells from ArchRProject!
-    ##  scATAC_PBMC_R1 : 60 of 2453 (2.4%)
-    ##  scATAC_CD34_BMMC_R1 : 79 of 2818 (2.8%)
-
 \#\#\#Dimensionality Reduction and Clustering
 
 ``` r
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
-```
 
-    ## Checking Inputs...
-
-    ## ArchR logging to : ArchRLogs/ArchR-addIterativeLSI-25d27f1b49be-Date-2021-05-05_Time-15-24-57.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## 2021-05-05 15:24:57 : Computing Total Across All Features, 0.002 mins elapsed.
-
-    ## 2021-05-05 15:25:00 : Computing Top Features, 0.04 mins elapsed.
-
-    ## ###########
-    ## 2021-05-05 15:25:01 : Running LSI (1 of 2) on Top Features, 0.061 mins elapsed.
-    ## ###########
-
-    ## 2021-05-05 15:25:01 : Creating Partial Matrix, 0.061 mins elapsed.
-
-    ## 2021-05-05 15:25:05 : Computing LSI, 0.129 mins elapsed.
-
-    ## 2021-05-05 15:25:22 : Identifying Clusters, 0.417 mins elapsed.
-
-    ## 2021-05-05 15:25:32 : Identified 6 Clusters, 0.581 mins elapsed.
-
-    ## 2021-05-05 15:25:32 : Saving LSI Iteration, 0.581 mins elapsed.
-
-    ## 2021-05-05 15:25:42 : Creating Cluster Matrix on the total Group Features, 0.745 mins elapsed.
-
-    ## 2021-05-05 15:25:48 : Computing Variable Features, 0.849 mins elapsed.
-
-    ## ###########
-    ## 2021-05-05 15:25:48 : Running LSI (2 of 2) on Variable Features, 0.853 mins elapsed.
-    ## ###########
-
-    ## 2021-05-05 15:25:48 : Creating Partial Matrix, 0.853 mins elapsed.
-
-    ## 2021-05-05 15:25:54 : Computing LSI, 0.94 mins elapsed.
-
-    ## 2021-05-05 15:26:10 : Finished Running IterativeLSI, 1.221 mins elapsed.
-
-``` r
 #To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
 proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-addClusters-25d22a5b6bc4-Date-2021-05-05_Time-15-26-10.log
-    ## If there is an issue, please report to github with logFile!
-
-    ## 2021-05-05 15:26:11 : Running Seurats FindClusters (Stuart et al. Cell 2019), 0.002 mins elapsed.
-
-    ## Computing nearest neighbor graph
-
-    ## Computing SNN
-
     ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
     ## 
     ## Number of nodes: 5132
-    ## Number of edges: 314076
+    ## Number of edges: 311598
     ## 
     ## Running Louvain algorithm...
-    ## Maximum modularity in 10 random starts: 0.8183
+    ## Maximum modularity in 10 random starts: 0.8194
     ## Number of communities: 9
     ## Elapsed time: 0 seconds
-
-    ## 2021-05-05 15:26:20 : Testing Outlier Clusters, 0.158 mins elapsed.
-
-    ## 2021-05-05 15:26:20 : Assigning Cluster Names to 9 Clusters, 0.158 mins elapsed.
-
-    ## 2021-05-05 15:26:20 : Finished addClusters, 0.159 mins elapsed.
 
 ``` r
 #We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 ```
 
-    ## 15:26:20 UMAP embedding parameters a = 0.7669 b = 1.223
-
-    ## 15:26:20 Read 5132 rows and found 30 numeric columns
-
-    ## 15:26:20 Using Annoy for neighbor search, n_neighbors = 40
-
-    ## 15:26:20 Building Annoy index with metric = cosine, n_trees = 50
-
-    ## 0%   10   20   30   40   50   60   70   80   90   100%
-
-    ## [----|----|----|----|----|----|----|----|----|----|
-
-    ## **************************************************|
-    ## 15:26:21 Writing NN index file to temp file /tmp/RtmpblA0Am/file25d2148a8c03
-    ## 15:26:21 Searching Annoy index using 20 threads, search_k = 4000
-    ## 15:26:21 Annoy recall = 100%
-    ## 15:26:22 Commencing smooth kNN distance calibration using 20 threads
-    ## 15:26:23 Found 2 connected components, falling back to 'spca' initialization with init_sdev = 1
-    ## 15:26:23 Initializing from PCA
-    ## 15:26:23 PCA: 2 components explained 66.23% variance
-    ## 15:26:23 Commencing optimization for 500 epochs, with 310616 positive edges
-    ## 15:26:40 Optimization finished
-    ## 15:26:40 Creating temp model dir /tmp/RtmpblA0Am/dir25d269f4337e
-    ## 15:26:40 Creating dir /tmp/RtmpblA0Am/dir25d269f4337e
-    ## 15:26:40 Changing to /tmp/RtmpblA0Am/dir25d269f4337e
-    ## 15:26:40 Creating /home/af547/Git/SethupathyLab/scATAC_Tutorial/HemeTutorial/Embeddings/Save-Uwot-UMAP-Params-IterativeLSI-25d236ee0a2a-Date-2021-05-05_Time-15-26-40.tar
-
 ``` r
 #We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-25d2224770e4-Date-2021-05-05_Time-15-26-40.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d4ecca1d4-Date-2021-05-05_Time-16-27-02.log
     ## If there is an issue, please report to github with logFile!
+
     ## Getting UMAP Embedding
+
     ## ColorBy = cellColData
+
     ## Plotting Embedding
+
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-25d2224770e4-Date-2021-05-05_Time-15-26-40.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d4ecca1d4-Date-2021-05-05_Time-16-27-02.log
 
 ``` r
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-25d2a341300-Date-2021-05-05_Time-15-26-41.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d77691919-Date-2021-05-05_Time-16-27-02.log
     ## If there is an issue, please report to github with logFile!
     ## Getting UMAP Embedding
     ## ColorBy = cellColData
     ## Plotting Embedding
     ## 1 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-25d2a341300-Date-2021-05-05_Time-15-26-41.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d77691919-Date-2021-05-05_Time-16-27-02.log
 
 ``` r
 ggAlignPlots(p1, p2, type = "h")
 ```
 
-![](ArchR_tutorial_files/figure-gfm/Dimensionality%20Reduction,%20UMAP%20Generation%20and%20Visualization-1.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/UMAP%20Visualization-1.png)<!-- -->
 
 ``` r
 #To save an editable vectorized version of this plot, we use the plotPDF() function.
@@ -348,10 +224,10 @@ assigning cell-type specific markers to them.
 proj <- addImputeWeights(proj)
 ```
 
-    ## ArchR logging to : ArchRLogs/ArchR-addImputeWeights-25d229d72965-Date-2021-05-05_Time-15-26-48.log
+    ## ArchR logging to : ArchRLogs/ArchR-addImputeWeights-637d2a1b3729-Date-2021-05-05_Time-16-27-09.log
     ## If there is an issue, please report to github with logFile!
 
-    ## 2021-05-05 15:26:48 : Computing Impute Weights Using Magic (Cell 2018), 0 mins elapsed.
+    ## 2021-05-05 16:27:09 : Computing Impute Weights Using Magic (Cell 2018), 0 mins elapsed.
 
 ``` r
 #Now we can overlay our marker gene scores on our 2D UMAP embedding.
@@ -362,7 +238,9 @@ markerGenes  <- c(
     "CD14", "MPO", #Monocytes
     "CD3D", "CD8A"#TCells
   )
+```
 
+``` r
 p <- plotEmbedding(
     ArchRProj = proj, 
     colorBy = "GeneScoreMatrix", 
@@ -374,7 +252,7 @@ p <- plotEmbedding(
 
     ## Getting ImputeWeights
 
-    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-25d22a1110f7-Date-2021-05-05_Time-15-26-53.log
+    ## ArchR logging to : ArchRLogs/ArchR-plotEmbedding-637d5f719a8-Date-2021-05-05_Time-16-27-15.log
     ## If there is an issue, please report to github with logFile!
 
     ## Getting UMAP Embedding
@@ -383,7 +261,7 @@ p <- plotEmbedding(
 
     ## Getting Matrix Values...
 
-    ## 2021-05-05 15:26:54 :
+    ## 2021-05-05 16:27:15 :
 
     ## 
 
@@ -400,14 +278,14 @@ p <- plotEmbedding(
     ## Plotting Embedding
 
     ## 1 2 3 4 5 6 7 8 9 
-    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-25d22a1110f7-Date-2021-05-05_Time-15-26-53.log
+    ## ArchR logging successful to : ArchRLogs/ArchR-plotEmbedding-637d5f719a8-Date-2021-05-05_Time-16-27-15.log
 
 ``` r
 #To plot a specific gene we can subset this plot list using the gene name.
 p$CD14
 ```
 
-![](ArchR_tutorial_files/figure-gfm/Assign%20genes%20to%20clusters-1.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/Make%20plots-1.png)<!-- -->
 
 ``` r
 #Plot all genes defined in markerGenes
@@ -425,7 +303,7 @@ p2 <- lapply(p, function(x){
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 ```
 
-![](ArchR_tutorial_files/figure-gfm/Assign%20genes%20to%20clusters-2.png)<!-- -->
+![](ArchR_tutorial_files/figure-gfm/Make%20plots-2.png)<!-- -->
 
 ``` r
 #Save an editable PDF version
