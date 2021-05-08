@@ -26,6 +26,7 @@ addArchRThreads(threads = 35)
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
+[Here is more information on how the genomes are compiled and how to create a custom genome](https://www.archrproject.com/bookdown/getting-set-up.html)
 
 ```{r download tutorial data and add genome}
 inputFiles <- getTutorialData(tutorial = "Hematopoiesis")
@@ -34,7 +35,10 @@ addArchRGenome(genome = "hg19", install = FALSE)
 ```
 ### Creating Arrow Files
 
-ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
+ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. An Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk. Input files can be i) scATAC tabix files, (ii) fragment files, or (iii) bam files.
+
+[Here is the ArchR section on Arrow files](https://www.archrproject.com/bookdown/input-file-types-in-archr.html)
+[Here is more information on Hierarchical Data Format (HDF)](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)
 
 ```{r create arrowfiles, message = F, warning = F, cache = TRUE}
 ArrowFiles <- createArrowFiles(
@@ -49,29 +53,47 @@ ArrowFiles <- createArrowFiles(
 ArrowFiles
 ```
 
+### Per-cell Quality Control
 Quality Control of scATAC-seq data is essential to remove cells that contribute to low-quality data. There are three characteristics that scATAC considers 
-1. The number of unique nuclear fragments (i.e. not mapping to mitochondrial DNA).
-2. The signal-to-background ratio. Low signal-to-background ratio is often attributed to dead or dying cells which have de-chromatinzed DNA which allows for random transposition genome-wide.
-3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).
+1. The number of unique nuclear fragments (i.e. not mapping to mitochondrial DNA).  
+<br>
+2. The signal-to-background ratio. Low signal-to-background ratio is often attributed to dead or dying cells which have de-chromatinzed DNA which allows for random transposition genome-wide. We expect high local enrichment at TSS regions relative to flanking regions +/- 2kb. Traditionally, the per-base-pair accessibility is computed for each bulk ATAC-seq sample and then this profile is used to determine the TSS enrichment score, a slow and computationally expensive approach if used for scATAC. To accurately approximate the TSS enrichment score per single cell, we count the average accessibility within a 50-bp region centered at each single-base TSS position and divide this by the average accessibility of the TSS flanking positions (+/- 1900 – 2000 bp). This approximation was highly correlated (R > 0.99) with the original method and values were extremely close in magnitude.  
+<br>
+3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).  
+<br>
+These QC metrics are performed during ArrowFile generation.  
+<br>
+[More inforamtion on how each of these metrics are determined with ArchR](https://www.archrproject.com/bookdown/per-cell-quality-control.html)
+<br>  
 
-ArchR also infers doublets, a single droplet that contains multiple cells.
-```{r infer doublets, message = F, warning = F, results = 'hide', cache = TRUE}
+### ArchR doublet inference
+ArchR also infers doublets, a single droplet that contains multiple cells. Determining and filtering out doublets are critical. Even 5% doublet rate exerts substantial effects on clustering. Doublets are effectively the average across two cells, and may appear as cell state/type intermediates.  
+<br>
+ArchR predicts doublets by synthesizing in-silico doublets, by merging reads from thousands of combinations of individual cells. These synthetic doublets are projected into the embedded UMAP and identify the nearest neighbor (real doublets). This process is iterated thousands of times to identify true doublets, "cells" whose signals looks very similar to the   By iterating this procedure thousands of times, ArchR identifies “cells” in our data whose signal looks very similar to synthetic doublets.  
+<br>
+[More details on how this approach was developed and validated](https://www.archrproject.com/bookdown/how-does-doublet-identification-work-in-archr.html)
+
+```{r infer doublets, cache = TRUE}
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
-  knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search.
+  knnMethod = "UMAP", #Refers to the embedding/dimensionality reduction method to be used for k-nearest neighbor search.
   LSIMethod = 1
 )
 ```
+A good scATAC-seq library will have an R^2 >.9 R^2 values less than .9 indicates cells with little heterogeneity. This makes the accuracy of doublet calling worse because the majority of doublets would be “homotypic” - or a single droplet with two very similar cells.  
+<br>
 
 ### Creating an ArchRProject
 ```{r Create ArchRProject, message = FALSE, cache = TRUE}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
-  copyArrows = TRUE #This is recommened so that you maintain an unaltered copy for later usage.
+  copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
 )
 ```
+
+There are many features to the ArchRProject that include manipulation, plotting sample statistics, fragments sizes, and TSS enrichment. A unique feature of ArchRProject is the ability to save and load the Project which allows for ease of sharing. [Check out more of these functions here](https://www.archrproject.com/bookdown/creating-an-archrproject.html)
 
 ```{r Filter ArchRProject, message = F, warning = F, cache = TRUE}
 #We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
@@ -82,7 +104,16 @@ proj <- filterDoublets(ArchRProj = proj)
 ```
 
 ### Dimensionality Reduction and Clustering
-
+<br>
+Single cell genomics is a high dimensional data with approximately 20 000 dimensions corresponding to the protein coding gene. To visualize this data, dimensionality reduction techniques are used to visualize the data on UMAP or t-SNE. This is challenging with scATAC-seq because by nature, scATAC-seq is sparse (due to the binary nature of the data).  
+<br>
+[ArchR uses a standard Latent Semantic Indexing (LSI) approach.](https://www.archrproject.com/bookdown/dimensionality-reduction-with-archr.html) Briefly, LSI finds the most important region/peak for each sample. LSI reduces the dimensionality from thousands of uninformative  insertion counts to tens or hundreds informative, critical insertions.  
+<br>
+[Here is brief introduction to LSI](https://www.youtube.com/watch?v=Wd2iL7cJIv4&t=321s)
+[Here is a more in depth view into LSI, SVD, and TF-IDF](https://www.youtube.com/watch?v=hB51kkus-Rc&t=1s)
+[Here is more information on estimated LSI dimensionality reduction for large scATAC-seq datasets](https://www.archrproject.com/bookdown/estimated-lsi.html)
+[If the LSI approach isnt sufficient for batch correction, read here for batch correction using Harmony](https://www.archrproject.com/bookdown/batch-effect-correction-wtih-harmony.html)
+<br>
 ```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
 #ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
@@ -93,7 +124,9 @@ proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
 #We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 ```
-
+<br>
+After identifying clusters in the LSI sub-space, ArchR embeddings such as UMAP and t-SNE can be used to visualie these clusters.
+<br>
 ```{r UMAP Visualization}
 #We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
@@ -107,9 +140,9 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
         ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
 ```
 
-### Assigning Clusters with Gene Scores
+### [Assigning Clusters with Gene Scores](https://www.archrproject.com/bookdown/single-cell-embeddings.html)
 
-The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
+The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by manually assigning cell-type specific markers to them. It is not possible to do this cell-type identification a priori.
 
 ```{r Assign genes to clusters, message = FALSE, cache = TRUE}
 #First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
