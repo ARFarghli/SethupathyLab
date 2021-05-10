@@ -6,8 +6,8 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-```{r eval = FALSE, include = FALSE}
+## ArchR Setup
+```{r install packages, eval = FALSE, include = FALSE}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
@@ -20,7 +20,7 @@ library(ArchR)
 set.seed(1)
 ```
 
-```{r message = F, warning = F}
+```{r set threads, message = F, warning = F}
 #set threads specific to your machine
 addArchRThreads(threads = 35) 
 ```
@@ -96,10 +96,10 @@ proj <- ArchRProject(
 There are many features to the ArchRProject that include manipulation, plotting sample statistics, fragments sizes, and TSS enrichment. A unique feature of ArchRProject is the ability to save and load the Project which allows for ease of sharing. [Check out more of these functions here](https://www.archrproject.com/bookdown/creating-an-archrproject.html)
 
 ```{r Filter ArchRProject, message = F, warning = F, cache = TRUE}
-#We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
+# We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
 getAvailableMatrices(proj)
 
-#Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
+# Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
 proj <- filterDoublets(ArchRProj = proj)
 ```
 
@@ -115,37 +115,48 @@ Single cell genomics is a high dimensional data with approximately 20 000 dimens
 [If the LSI approach isnt sufficient for batch correction, read here for batch correction using Harmony](https://www.archrproject.com/bookdown/batch-effect-correction-wtih-harmony.html)
 <br>
 ```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
-#ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
+# ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
 
-#To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
+# To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
 proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
 
-#We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
+# We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 ```
 <br>
 After identifying clusters in the LSI sub-space, ArchR embeddings such as UMAP and t-SNE can be used to visualie these clusters.
 <br>
 ```{r UMAP Visualization}
-#We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
+# We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ggAlignPlots(p1, p2, type = "h")
 ```
 
-```{r message = FALSE}
+```{r Save UMAP embedding as PDF, message = FALSE}
 #To save an editable vectorized version of this plot, we use the plotPDF() function.
 plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
         ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
 ```
 
-### [Assigning Clusters with Gene Scores](https://www.archrproject.com/bookdown/single-cell-embeddings.html)
+### Gene Scores and Marker Genes with ArchR
+<br>
+#### [Assigning Clusters with Gene Scores](https://www.archrproject.com/bookdown/single-cell-embeddings.html)
 
-The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by manually assigning cell-type specific markers to them. It is not possible to do this cell-type identification a priori.
+The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by manually assigning cell-type specific markers to them. It is not possible to do this cell-type identification a priori.  
+<br>
+The manually annotation uses prior knowledge of cell type-specific marker genes and estimation of gene expression using gene scores. A gene score is a prediction of gene expression based on the accessibility of regulatory elements in the vicinity.  
+<br>
+[The gene score algorithm/model has three major components.](https://www.archrproject.com/bookdown/calculating-gene-scores-in-archr.html)
+1. Accessibility within the entire gene body contributes to the gene score.
+2. An exponential weighting function that accounts for the activity of putative distal regulatory elements in a distance-dependent fashion.
+3. Imposed gene boundaries that minimizes the contribution of unrelated regulatory elements to the gene score.
 
+First, we add imputation weights using [MAGIC](https://github.com/KrishnaswamyLab/MAGIC) to help smooth the dropout noise in our gene scores.
+
+#### Cell cluster assignment a posteriori 
 ```{r Assign genes to clusters, message = FALSE, cache = TRUE}
-#First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
 proj <- addImputeWeights(proj)
 
 #Now we can overlay our marker gene scores on our 2D UMAP embedding.
@@ -168,7 +179,7 @@ p <- plotEmbedding(
 )
 ```
 
-```{r}
+```{r Plot UMAP Marker Genes}
 #To plot a specific gene we can subset this plot list using the gene name.
 p$CD14
 
@@ -186,7 +197,7 @@ p2 <- lapply(p, function(x){
 })
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 ```
-
+<br>
 ```{r, message=FALSE}
 #Save an editable PDF version
 plotPDF(plotList = p, 
@@ -194,10 +205,122 @@ plotPDF(plotList = p,
     ArchRProj = proj, 
     addDOC = FALSE, width = 5, height = 5)
 ```
+<br>
 
+#### [Unbiased identification of marker features for cell clusters](https://www.archrproject.com/bookdown/identification-of-marker-features.html)
+<br>
+In addition to manual annotation of clusters, ArchR allows for unbiased identification of marker features (features being peaks, genes, or transcription factor motifs). This is done with the `getMarkerFeatures()` function with any matrix made up to this point (tiles, peaks, gene scores).
 
+```{r Marker gene identification using gene scores}
+# We'll begin by identifying marker genes using gene scores. Recall, gene scores were added when the ArchRProject was created in
+markersGS <- getMarkerFeatures(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+```
+We can then make a list of marker genes with the desired cutoffs and list for each cluster
+```{r Marker gene statistical and expression cutoff}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.25")
+markerList$C6
+```
 
+We can visualize all marker genes across all clusters simultaneously. Additionally, we can manually annotate known marker genes.
+```{r Visualize all marker genes}
+markerGenes  <- c(
+    "CD34", #Early Progenitor
+    "GATA1", #Erythroid
+    "PAX5", "MS4A1", "EBF1", "MME", #B-Cell Trajectory
+    "CD14", "CEBPB", "MPO", #Monocytes
+    "IRF8", 
+    "CD3D", "CD8A", "TBX21", "IL7R" #TCells
+  )
 
+heatmapGS <- markerHeatmap(
+  seMarker = markersGS, 
+  cutOff = "FDR <= 0.01 & Log2FC >= 1.25", 
+  labelMarkers = markerGenes,
+  transpose = TRUE
+)
+```
 
+```{r Save PDF of all marker genes}
+plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme2, addDOC = FALSE)
+```
 
+### Visualizing Genome Browser Tracks
 
+ArchR allows for visualization of genome browser tracks to browse local chromatin accessibility at marker genes on a per cluster basis. This is done by the following function `plotBrowserTrack()`.  
+
+```{r Plot browser track of markerGenes within each cluster}
+p <- plotBrowserTrack(
+    ArchRProj = proj, 
+    groupBy = "Clusters", 
+    geneSymbol = markerGenes, 
+    upstream = 50000,
+    downstream = 50000
+)
+```
+We can then select the gene marker we wish to visualize.  
+```{r view local chromatin accessibility flanking CD14}
+grid::grid.newpage()
+grid::grid.draw(p$CD14)
+```
+Lastly, we save the above figure with the following.  
+```{r save PDF of local chromatin accessibility flanking CD14}
+plotPDF(plotList = p, 
+    name = "Plot-Tracks-Marker-Genes.pdf", 
+    ArchRProj = proj, 
+    addDOC = FALSE, width = 5, height = 5)
+```
+### ArchR Shiny App
+
+ArchR natively supports an interactice genome browser through shiny app that can be launched with the following.
+```{r Load Shiny APp}
+ArchRBrowser(ArchRProj = proj)
+```
+### Saving and Loading an ArchRProject
+We can save the ArchRProject in session and load it at a later time. Saving copies the current ArchRProject object and all of the Arrow files to a specified directory (or the output directory specified earlier). Saving an ArchRProject allows us to easily load all computations we did in earlier steps, pr share the project with collaborators.  
+<br>
+Another way to leverage this save feature, we can run all the computational lines of code we did earlier on one Rmd, load the project on another Rmd to visualize the data. 
+```{r Save ArchRProject}
+proj <- saveArchRProject(ArchRProj = proj)
+```
+<br>
+```{r Load ArchRProject}
+proj <- loadArchRProject(path = "HemeTutorial")
+```
+
+### Defining Cluster Identity with scRNA-seq
+
+ArchR allows for scATAC/scRNA-seq integration, performed using the `FindTransferAnchors()` function from the Seurat package. ArchR scales this procedure by dividing the cells in numerous groups and performing alignments in parallel.  
+<br>
+Ultimately, we can associate gene expression to predicted cis-regulatory elements.
+```{r Download scRNA Hematopoiesis data}
+if(!file.exists("scRNA-Hematopoiesis-Granja-2019.rds")){
+    download.file(
+        url = "https://jeffgranja.s3.amazonaws.com/ArchR/TestData/scRNA-Hematopoiesis-Granja-2019.rds",
+        destfile = "scRNA-Hematopoiesis-Granja-2019.rds"
+    )
+}
+
+seRNA <- readRDS("scRNA-Hematopoiesis-Granja-2019.rds")
+seRNA
+```
+
+We can look at the metadata with the following line of code. Notice that BioClassification contains the cell type classification in the scRNA-seq dataset.
+```{r seRNA metadata}
+colnames(colData(seRNA))
+```
+and we can look at how many cells are in each cell-type.
+```{r Number of cells in each cell-type}
+table(colData(seRNA)$BioClassification)
+```
+
+#### Unconstrained Integration
+
+The first round of integration we perform will be a preliminary unconstrained integration.
+
+We will use we use the addGeneIntegrationMatrix() function. As mentioned above, this function accepts either a Seurat object or a RangedSummarizedExperiment object via the seRNA parameter.  (addToArrow = FALSE). We provide a name for the integration matrix that will be stored in the ArchRProject via the matrixName parameter. The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
