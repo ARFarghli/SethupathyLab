@@ -321,6 +321,110 @@ table(colData(seRNA)$BioClassification)
 
 #### Unconstrained Integration
 
-The first round of integration we perform will be a preliminary unconstrained integration.
+The first round of integration we perform will be a preliminary unconstrained integration, in which we do not identify any scATAC-seq clusters. We will use we use the addGeneIntegrationMatrix() function with either a Seurat object or a RangedSummarizedExperiment object via the seRNA parameter. There are other parameters that provide column names.
 
-We will use we use the addGeneIntegrationMatrix() function. As mentioned above, this function accepts either a Seurat object or a RangedSummarizedExperiment object via the seRNA parameter.  (addToArrow = FALSE). We provide a name for the integration matrix that will be stored in the ArchRProject via the matrixName parameter. The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
+*matrixName: Name for the integration matrix that will be stored in the ArchRProject 
+*cellColData
+  *nameCell: Cell ID from the matched scRNA-seq cell
+  *nameGroup: Group ID from the scRNA-seq cell
+  *nameScore: cross-platform integration score
+
+```{r Unconstrained integration of scRNA/ATAC-seq}
+projHeme2 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+```
+
+#### Preparing constrained integration
+We can then use the results of the unconstrained integration to further refine a constrained approach. In this tutorial, we want to identify which scRNA-seq cell types are most abundant in scATAC-seq clusters.  
+<br> 
+We will then identify T cells and NK cells from the unconstrained integration to refine our integrated approach.
+
+```{r Creat confusion matrix}
+cM <- as.matrix(confusionMatrix(projHeme2$Clusters, projHeme2$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments
+```
+The above list shows which scRNA-seq cell type is most abundant in each of the 12 scATAC-seq clusters. There may be traces of other cell types within these clusters.  
+<br>
+Now we'll look at **all** scRNA-seq cell type labels were used in the unconstrained integration.  
+```{r Identify cell type labels used in unconstrained integration}
+unique(unique(projHeme2$predictedGroup_Un))
+```
+From the above list, we can see that the clusters in the scRNA-seq data that correspond to T cells and NK cells are Clusters 19-25. We will create a string-based representation of these clusters to use in the downstream constrained integration and call this cTNK
+<br> 
+We will also create a string-based representation of non TNK cells and call that variable cNonTNK.  
+<br>
+Now, we want to be able to pull all the cells of interest from their respective clusters. To do this, we will use the `grep()` function which will use a defined pattern to extract rows. The `|` acts as an OR statement as grep looks through the rows of our confusion matrix.
+```{r create string of TNK and nonTNK identifiers}
+#From scRNA
+cTNK <- paste0(paste0(19:25), collapse="|")
+cNonTNK <- paste0(c(paste0("0", 1:9), 10:13, 15:18), collapse="|")
+cTNK
+cNonTNK
+```
+
+```{r Identify scATAC-seq clusters that correspond to most abundant scRNA-seq cell types.}
+#Assign scATAC to these categories
+clustTNK <- rownames(cM)[grep(cTNK, preClust)]
+clustTNK
+clustNonTNK <- rownames(cM)[grep(cNonTNK, preClust)]
+clustNonTNK
+```
+Using a similar approach, we will extract all cells that are TNK or Non TNK.
+```{r Extract TNK and nonTNK scRNA-seq cells}
+#RNA get cells in these categories
+rnaTNK <- colnames(seRNA)[grep(cTNK, colData(seRNA)$BioClassification)]
+head(rnaTNK)
+rnaNonTNK <- colnames(seRNA)[grep(cNonTNK, colData(seRNA)$BioClassification)]
+head(rnaNonTNK)
+```
+
+
+
+To prepare for this constrained integration, we create a nested list. This is a SimpleList of multiple SimpleList objects, one for each group that we would like to constrain. In this example, we have two groups: one group called TNK that identifies the T cells and NK cells across the two platforms, and a second group called NonTNK that identifies the Non-T cell Non-NK cell cells across the two platforms. Each of these SimpleList objects has two vectors of cell IDs, one called ATAC and one called RNA as shown below:
+```{r Simplelist of objects we want to constrain}
+groupList <- SimpleList(
+    TNK = SimpleList(
+        ATAC = projHeme2$cellNames[projHeme2$Clusters %in% clustTNK],
+        RNA = rnaTNK
+    ),
+    NonTNK = SimpleList(
+        ATAC = projHeme2$cellNames[projHeme2$Clusters %in% clustNonTNK],
+        RNA = rnaNonTNK
+    )    
+)
+
+# We pass this list to the `groupList` parameter of the `addGeneIntegrationMatrix()` function to constrain our integration. Note that, in this case, we are still not adding these results to the Arrow files (`addToArrow = FALSE`). We recommend checking the results of the integration thoroughly against your expectations prior to saving the results in the Arrow files. We illustrate this process in the next section of the book.
+#~5 minutes
+projHeme2 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE, 
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Co",
+    nameGroup = "predictedGroup_Co",
+    nameScore = "predictedScore_Co"
+)
+```
+
+
+
+
+
+
+
+
