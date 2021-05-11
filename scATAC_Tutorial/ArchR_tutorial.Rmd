@@ -389,9 +389,8 @@ rnaNonTNK <- colnames(seRNA)[grep(cNonTNK, colData(seRNA)$BioClassification)]
 head(rnaNonTNK)
 ```
 
-
-
-To prepare for this constrained integration, we create a nested list. This is a SimpleList of multiple SimpleList objects, one for each group that we would like to constrain. In this example, we have two groups: one group called TNK that identifies the T cells and NK cells across the two platforms, and a second group called NonTNK that identifies the Non-T cell Non-NK cell cells across the two platforms. Each of these SimpleList objects has two vectors of cell IDs, one called ATAC and one called RNA as shown below:
+Now that we have all the scRNA/ATAC-seq cells, we'll create a nested list. This is a SimpleList within a SimpleList. We will have two groups: 1) T and NK within scATAC-seq and scRNA-seq and 2) non T and NK cells within scATAC-seq and scRNA-seq. Each of these SimpleList objects has two vectors of cell IDs, one called ATAC and one called RNA as shown below:
+<br>
 ```{r Simplelist of objects we want to constrain}
 groupList <- SimpleList(
     TNK = SimpleList(
@@ -421,8 +420,38 @@ projHeme2 <- addGeneIntegrationMatrix(
 )
 ```
 
+#### Compare unconstrained and constrained integrations
 
+```{r Create color palette}
+# We will create a color palette using the ArchR built in package
+pal <- paletteDiscrete(values = colData(seRNA)$BioClassification)
+pal
+```
 
+```{r Visualize unconstrained and constrained integrations}
+p1 <- plotEmbedding(
+    projHeme2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    pal = pal
+)
+p2 <- plotEmbedding(
+    projHeme2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Co", 
+    pal = pal
+)
+p1
+p2
+```
+
+```{r Save PDF of Integrated UMAPs}
+plotPDF(p1,p2, name = "Plot-UMAP-RNA-Integration.pdf", ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
+```
+Now we can save our ArchRProject with the updated ArrowFiles
+```{r}
+saveArchRProject(ArchRProj = projHeme2, outputDirectory = "Save-ProjHeme2", load = FALSE)
+```
 
 
 
