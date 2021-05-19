@@ -449,8 +449,281 @@ p2
 plotPDF(p1,p2, name = "Plot-UMAP-RNA-Integration.pdf", ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
 ```
 Now we can save our ArchRProject with the updated ArrowFiles
-```{r}
+```{r Save ArchRProjet}
 saveArchRProject(ArchRProj = projHeme2, outputDirectory = "Save-ProjHeme2", load = FALSE)
+```
+
+#### Adding psuedo-scRNA-seq profiles for each scATAC-seq gene
+```{r Add psuedo-scRNA-seq gene expression profiles}
+#~5 minutes
+projHeme3 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = TRUE,
+    force= TRUE,
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell",
+    nameGroup = "predictedGroup",
+    nameScore = "predictedScore"
+)
+```
+
+GeneIntegrationMatrix should now be available to us
+```{r Check projHeme3 matrices}
+getAvailableMatrices(projHeme3)
+```
+
+We can compare the inferred gene expression obtained through gene scores, with the linked gene expression through integration. First we have to add magic imputations to our new project.
+
+```{r Add impute weights to projHeme3}
+projHeme3 <- addImputeWeights(projHeme3)
+```
+
+Now we'll make two separate UMAPs, one containing integrated gene expression (p1) and a second containing inferred gene expression (p2).
+
+```{r Assign marker genes and make integrated UMAP gene expression}
+markerGenes  <- c(
+    "CD34", #Early Progenitor
+    "GATA1", #Erythroid
+    "PAX5", "MS4A1", #B-Cell Trajectory
+    "CD14", #Monocytes
+    "CD3D", "CD8A", "TBX21", "IL7R" #TCells
+  )
+
+p1 <- plotEmbedding(
+    ArchRProj = projHeme3, 
+    colorBy = "GeneIntegrationMatrix", 
+    name = markerGenes, 
+    continuousSet = "horizonExtra",
+    embedding = "UMAP",
+    imputeWeights = getImputeWeights(projHeme3)
+)
+```
+
+```{r Make UMAP inferred gene of inferred gene expression}
+p2 <- plotEmbedding(
+    ArchRProj = projHeme3, 
+    colorBy = "GeneScoreMatrix", 
+    continuousSet = "horizonExtra",
+    name = markerGenes, 
+    embedding = "UMAP",
+    imputeWeights = getImputeWeights(projHeme3)
+)
+```
+
+```{r Use ArchR homemade function for plots and plot integrated UMAP}
+p1c <- lapply(p1, function(x){
+    x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+        axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank()
+    )
+})
+
+p2c <- lapply(p2, function(x){
+    x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+        axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank()
+    )
+})
+
+do.call(cowplot::plot_grid, c(list(ncol = 3), p1c))
+```
+
+```{r Plot inferred gene expression UMAP}
+do.call(cowplot::plot_grid, c(list(ncol = 3), p2c))
+```
+
+```{r Save PDF of plot}
+plotPDF(plotList = p1, 
+    name = "Plot-UMAP-Marker-Genes-RNA-W-Imputation.pdf", 
+    ArchRProj = projHeme3, 
+    addDOC = FALSE, width = 5, height = 5)
+```
+#### Label scATAC-seq clusters with scRNA-seq information
+
+First we'll make a confusionMatrix between scATAC-seq clusters and predicted groups from the integrated analysis.
+```{r}
+cM <- confusionMatrix(projHeme3$Clusters, projHeme3$predictedGroup)
+labelOld <- rownames(cM)
+labelOld
+#  [1] "Cluster11" "Cluster2"  "Cluster12" "Cluster1"  "Cluster8"  "Cluster4" 
+#  [7] "Cluster9"  "Cluster5"  "Cluster7"  "Cluster14" "Cluster3"  "Cluster10"
+# [13] "Cluster6"  "Cluster13"
+```
+Identify the cell-type that best defines scATAC-seq cluster
+```{r}
+labelNew <- colnames(cM)[apply(cM, 1, which.max)]
+labelNew
+```
+We'll now assign the colloquial names to all the possible clusters
+```{r}
+remapClust <- c(
+    "01_HSC" = "Progenitor",
+    "02_Early.Eryth" = "Erythroid",
+    "03_Late.Eryth" = "Erythroid",
+    "04_Early.Baso" = "Basophil",
+    "05_CMP.LMPP" = "Progenitor",
+    "06_CLP.1" = "CLP",
+    "07_GMP" = "GMP",
+    "08_GMP.Neut" = "GMP",
+    "09_pDC" = "pDC",
+    "10_cDC" = "cDC",
+    "11_CD14.Mono.1" = "Mono",
+    "12_CD14.Mono.2" = "Mono",
+    "13_CD16.Mono" = "Mono",
+    "15_CLP.2" = "CLP",
+    "16_Pre.B" = "PreB",
+    "17_B" = "B",
+    "18_Plasma" = "Plasma",
+    "19_CD8.N" = "CD8.N",
+    "20_CD4.N1" = "CD4.N",
+    "21_CD4.N2" = "CD4.N",
+    "22_CD4.M" = "CD4.M",
+    "23_CD8.EM" = "CD8.EM",
+    "24_CD8.CM" = "CD8.CM",
+    "25_NK" = "NK"
+)
+remapClust <- remapClust[names(remapClust) %in% labelNew]
+```
+
+We will map the new colloquial cluster names to the confusion matrix character vector. To do this, we will provide the colloquial and technical labels provided in `remapClust` to map onto `labelNew`.
+
+```{r}
+labelNew2 <- mapLabels(labelNew, oldLabels = names(remapClust), newLabels = remapClust)
+labelNew2
+#  [1] "GMP"        "B"          "PreB"       "CD4.N"      "Mono"      
+#  [6] "Erythroid"  "Progenitor" "CD4.M"      "pDC"        "NK"        
+# [11] "CLP"        "Mono"
+```
+
+We will now create a new column in projHeme3 that contains the new colloquial labels, and use that to label the UMAP 
+```{r Use colloquial labels for UMAP}
+projHeme3$Clusters2 <- mapLabels(projHeme3$Clusters, newLabels = labelNew2, oldLabels = labelOld)
+p1 <- plotEmbedding(projHeme3, colorBy = "cellColData", name = "Clusters2")
+p1
+```
+
+```{r Save PDF of colloquially labels UMAP clusters}
+plotPDF(p1, name = "Plot-UMAP-Remap-Clusters.pdf", ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
+```
+
+```{r Save projHeme3}
+saveArchRProject(ArchRProj = projHeme3, outputDirectory = "Save-ProjHeme3", load = FALSE)
+```
+
+### Creating psuedo-bulk replicates in ArchR
+
+There are analyses that we cannot do with the single-cell data due to the nature of its sparcity. To overcome this, we can use ArchR to create psuedo-bulk replicates. This generates data that resembles a bulk ATAC-seq library.
+
+We do this by grouping together single-cells derived from cell cluster or supersets of clusters. The ArchR process for making psuedo-bulk replicates is quite technical. [Read more here](https://www.archrproject.com/bookdown/pseudo-bulk-replicates-in-archr.html)
+
+We will group cells from clusters, and we will used clusters defined by scRNA-seq integration in the last step. 
+**NOTE: This grouping is not available if you did not integrate your across libraries. An alternative grouping will need to be used**
+```{r Generate psuedo bulk libraries}
+projHeme4 <- addGroupCoverages(ArchRProj = projHeme3, groupBy = "Clusters2")
+```
+
+### Calling bulk replicate peaks with ArchR
+
+ArchR has their own proprietary, fixed widt, hpeak calling method. Other methods of peak calling include bedtools merge, bedtools cluster. They both have their own short comings that are resolved by the ArchR iterative overlap approach. You can also add in your own peak set. Read more [here](https://www.archrproject.com/bookdown/the-iterative-overlap-peak-merging-procedure.html)
+
+ArchR looks for Macs2 for for peak calling. If it cannt find it, add it using the following code
+
+```{r Path to Mac2}
+pathToMacs2 <- findMacs2()
+```
+
+Now we can begin to generate a merged peak set with ArchR using `addReproduciblePeakSet()`. There are many other parameters we can play around with, so be sure to look through them with `~?addReproduciblePeakSet`.
+**Note: We can only have one peak set per ArchRProject. If you would like to experiment with different peak sets, you must save a copy of your ArchRProject and thus also copy the Arrow files.**
+
+#### Peak calling with Macs2
+
+```{r}
+projHeme4 <- addReproduciblePeakSet(
+    ArchRProj = projHeme4, 
+    groupBy = "Clusters2", 
+    pathToMacs2 = pathToMacs2
+)
+```
+
+We can retrieve these peaks as a GRanges object  with `getPeakSet()`. The peak set contains annotation for the group from which each peak originated. This does not mean the peak was only found in that group. Rather, the annotated group had the highest significance of that peak call.
+
+```{r Retrieve peak annotations}
+getPeakSet(projHeme4)
+```
+
+#### Peak calling with native ArchR approach, TileMatrix
+
+We can call peaks with the native ArchR approach. ArchR recommends using Macs2 unless absolutely necessary. We will go through how to use this native ArchR peak caller, and how to compare the two approaches
+
+To use the native peak caller, we set the paramter `method` to `p`.
+```{r ArchR native peak caller}
+projHemeTmp <- addReproduciblePeakSet(
+    ArchRProj = projHeme4, 
+    groupBy = "Clusters2",
+    peakMethod = "Tiles",
+    method = "p"
+)
+```
+
+```{r Retrieve TileMatrix peaks}
+getPeakSet(projHemeTmp)
+```
+
+#### Compare both peak calling approaches
+
+We can compare the peak sets generated by both approaches by looking at the percent of overlapping peaks
+
+First we'll look at MACS2-called peaks that are overlapped by the TileMatrix-called peaks
+```{r MACS2-called peaks overlapped by TileMatrix-called peaks}
+length(subsetByOverlaps(getPeakSet(projHeme4), getPeakSet(projHemeTmp))) / length(getPeakSet(projHeme4))
+```
+
+Then, we check the converse - the percent of TileMatrix-called peaks that are overlapped by MACS2-called peaks. You can see that this overlap is not as strong.
+```{r TileMatrix-called peaks overlapped by MACS2-called peaks}
+length(subsetByOverlaps(getPeakSet(projHemeTmp), getPeakSet(projHeme4))) / length(getPeakSet(projHemeTmp))
+```
+
+If we increase the margins of the peaks to be wider (1000-bp peaks instead of 500-bp peaks), the percent of MACS2-called peaks that are overlapped does not change much.
+```{r MACS2-called peaks overlapped by TileMatrix-called peaks 1000-margin}
+length(subsetByOverlaps(resize(getPeakSet(projHeme4), 1000, "center"), getPeakSet(projHemeTmp))) / length(getPeakSet(projHeme4))
+```
+
+But the percent of TileMatrix-called peaks overlapped by MACS2 does increase.
+```{r TileMatrix-called peaks overlapped by MACS2-called peaks 1000-margin}
+length(subsetByOverlaps(getPeakSet(projHemeTmp), resize(getPeakSet(projHeme4), 1000, "center"))) / length(getPeakSet(projHemeTmp))
+```
+
+We'll now save our ArchRProject with our preferred peak set, in this case MACS2 peaks.
+
+```{r Save ArchRProject with peak calls}
+saveArchRProject(ArchRProj = projHeme4, outputDirectory = "Save-ProjHeme4", load = FALSE)
+```
+
+We'll now prepare this data for downstream analyses.
+
+```{r Create Project with peakMatrix}
+projHeme5 <- addPeakMatrix(projHeme4)
+```
+
+Let's verify that `"PeakMatrix"` is available.
+
+```{r Check available Matrices}
+getAvailableMatrices(projHeme5)
 ```
 
 
