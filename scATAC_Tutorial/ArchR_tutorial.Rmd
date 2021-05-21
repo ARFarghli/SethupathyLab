@@ -14,7 +14,6 @@ devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager
 ArchR::installExtraPackages()
 ```
 
-
 ```{r install and load libraries, echo = F, message = F, warning = F}
 library(ArchR)
 set.seed(1)
@@ -724,6 +723,380 @@ Let's verify that `"PeakMatrix"` is available.
 
 ```{r Check available Matrices}
 getAvailableMatrices(projHeme5)
+```
+
+### Identifying marker peaks in psuedo-bulk sets
+
+We previously used `getMarkerFeatures()` to identify markers with gene scores. We can use this function on any matrix to identify marker features stored in our ArchRProject. Marker features are features that are unique to a specific cell grouping that can be used to understand cell-type or cluster specific biology.
+
+First, lets look at the cell-types and relative proportions
+```{r View scRNA overylayed labels}
+#Our scRNA labels
+table(projHeme5$Clusters2)
+```
+
+We can tell ArchR to identify marker peaks in an unsupervised fashion using `addMarkerFeatures()` function in combination with `useMatrix = "PeakMatrix"`. Additionally, we will tell ArchR to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
+
+```{r Identify Psuedo Bulk Marker peaks}
+markersPeaks <- getMarkerFeatures(
+    ArchRProj = projHeme5, 
+    useMatrix = "PeakMatrix", 
+    groupBy = "Clusters2",
+  bias = c("TSSEnrichment", "log10(nFrags)"),
+  testMethod = "wilcoxon"
+)
+```
+
+The object returned by the getMarkerFeatures() function is a SummarizedExperiment that contains a few different assays.
+
+```{r View psuedo bulk assays}
+markersPeaks
+```
+
+We can use the getMarkers() function to retrieve particular slices of this SummarizedExperiment that we are interested in. The default behavior of this function is to return a list of DataFrame objects, one for each cell group.
+
+```{r Retrieve Markers}
+markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+markerList
+```
+
+If we are interested in the marker peaks for a specific cell group, we can access this from the list via the $ accessor.
+
+```{r Look at Erythroid Marker peaks}
+markerList$Erythroid
+```
+
+Instead of a list of DataFrame objects, we can use getMarkers() to return a GRangesList object by setting returnGR = TRUE.
+
+```{r Retrive markers as GRangesList object}
+markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", returnGR = TRUE)
+markerList
+```
+
+This GRangesList object can similarly be subset to a GRanges object for a particular cell group using the $ accessor.
+
+```{r Look at Erythroid Marker peaks in GRanges Object}
+markerList$Erythroid
+```
+
+#### Plot Psuedo-bulk Marker Peaks
+
+We can visualize these marker peaks (or any features output by getMarkerFeatures()) as a heatmap using the markerHeatmap() function
+
+```{r Visualize marker peaks as heatmaps}
+heatmapPeaks <- markerHeatmap(
+  seMarker = markersPeaks, 
+  cutOff = "FDR <= 0.1 & Log2FC >= 0.5",
+  transpose = TRUE
+)
+```
+
+We can plot this heatmap using `draw()`.
+
+```{r Plot heatmap of marker peaks across all clusters}
+draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+To save an editable vectorized version of this plot, we use the plotPDF() function.
+
+```{r Save PDF of heatmap}
+plotPDF(heatmapPeaks, name = "Peak-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+##### MA and Volcano Plots
+
+```{r Marker Peaks MA plot}
+pma <- markerPlot(seMarker = markersPeaks, name = "Erythroid", cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "MA")
+pma
+```
+
+Similarly, for a Volcano plot, we specify plotAs = "Volcano".
+
+```{r Marker Peaks Volcano plot}
+pv <- markerPlot(seMarker = markersPeaks, name = "Erythroid", cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
+pv
+```
+
+To save an editable vectorized version of these plots, we use the plotPDF() function.
+
+```{r Save Volcano and MA plot as PDF}
+plotPDF(pma, pv, name = "Erythroid-Markers-MA-Volcano", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+##### Psuedo-bulk browser tracks
+
+Additionally we can see these peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameters in the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot. Here we specify plotting the GATA1 gene via the geneSymbol parameter.
+
+```{r Generate GATA1 Browser tracks}
+p <- plotBrowserTrack(
+    ArchRProj = projHeme5, 
+    groupBy = "Clusters2", 
+    geneSymbol = c("GATA1"),
+    features =  getMarkers(markersPeaks, cutOff = "FDR <= 0.1 & Log2FC >= 1", returnGR = TRUE)["Erythroid"],
+    upstream = 50000,
+    downstream = 50000
+)
+```
+
+We can plot this using grid::grid.draw().
+
+```{r Plot GATA1 Browser track}
+grid::grid.newpage()
+grid::grid.draw(p$GATA1)
+```
+
+To save an editable vectorized version of this plot, we use the plotPDF() function.
+
+```{r Save GATA1 Browser track as PDF}
+plotPDF(p, name = "Plot-Tracks-With-Features", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### [Pairwise Testing between groups](https://www.archrproject.com/bookdown/pairwise-testing-between-groups.html)
+
+Marker feature identification is a very specific type of differential test. However, ArchR also enables standard differential testing using the same getMarkerFeatures() function. The trick is to set useGroups to one of the two cell groups and bgdGroups to the other cell group. This performs a differential test between the two provided groups. In all of these differential tests, the peaks that are higher in the group passed to `useGroups` will have positive fold change values while the peaks that are higher in the group passed to `bgdGroups` will have negative fold change values.
+
+For this tutorial we'll do differential analyses between Erythroid (as `useGroups`) and Progenitor (as `bgdGroups`) cell groups.
+
+```{r Differential test between Erythroid and Progenitor cell groups}
+markerTest <- getMarkerFeatures(
+  ArchRProj = projHeme5, 
+  useMatrix = "PeakMatrix",
+  groupBy = "Clusters2",
+  testMethod = "wilcoxon",
+  bias = c("TSSEnrichment", "log10(nFrags)"),
+  useGroups = "Erythroid",
+  bgdGroups = "Progenitor"
+)
+```
+
+We can make MA and volcano plots of this differential test.
+
+```{r Manhattan plot DE}
+pma <- markerPlot(seMarker = markerTest, name = "Erythroid", cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "MA")
+pma
+```
+
+```{r Volcano Plot of DE}
+pv <- markerPlot(seMarker = markerTest, name = "Erythroid", cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "Volcano")
+pv
+```
+
+```{r Save PDF of MA and volcano plots}
+plotPDF(pma, pv, name = "Erythroid-vs-Progenitor-Markers-MA-Volcano", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+### Motif and Feature Enrichment
+
+Now that we have a robust marker peak set, we can now ask the question, which TF binding motifs are enriched within these accessible regions?  In a similar fashion, we might want to test various groups of peaks for enrichment of other known features. For example, we might want to know if cell type-specific ATAC-seq peaks for cell type A are enriched for another set of genomic regions such as ChIP-seq peaks. 
+
+We'll first start by looking for motifs that are enriched in peaks that up or downregulated in various cell types. First we must add add these motif annotations to our ArchRProject. This effectively creates a binary matrix where the presence of a motif in each peak is indicated numerically. We do this using the addMotifAnnotations() function which determines motif presence in the peak set stored in the ArchRProject.
+
+```{r Add Motif annotations to our ArchR Project}
+projHeme5 <- addMotifAnnotations(ArchRProj = projHeme5, motifSet = "cisbp", name = "Motif")
+```
+
+We can then use the differential testing SummarizedExperiment object markerTest (generated in the previous chapter) to define the set of significantly differential peaks that we are interested in testing for motif enrichment. In this case, we are looking for peaks that have an FDR <= 0.1 and a Log2FC >= 0.5. In the context of the differential comparison made in markerTest, these represent peaks that are more accessible in “Erythroid” cells than “Progenitor” cells. We can test these differentially accessible peaks for enrichment of various motifs using the peakAnnoEnrichment() function. This function is a generalizable function that can be used for many different enrichment tests as we will demonstrate throughout this chapter.
+
+```{r}
+motifsUp <- peakAnnoEnrichment(
+    seMarker = markerTest,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+The output of peakAnnoEnrichment() is a SummarizedExperiment object containing multiple assays that store the results of enrichment testing with the hypergeometric test.
+
+```{r Look at motif results}
+motifsUp
+```
+
+To prepare this data for plotting with ggplot we can create a simplified data.frame object containing the motif names, the corrected p-values, and the significance rank.
+
+```{r Create date.frame and look at motif names}
+df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+df$rank <- seq_len(nrow(df))
+head(df)
+```
+
+Using ggplot we can plot the rank-sorted TF motifs and color them by the significance of their enrichment. Here we use ggrepel to label each TF motif.
+
+```{r Generate and plot Erythroid enriched motifs}
+ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+        data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+        size = 1.5,
+        nudge_x = 2,
+        color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(P-adj) Motif Enrichment") + 
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+ggUp
+```
+
+We can also look at motifs upregulated in Progenitor cells by using peaks with Log2FC <= -0.5.
+
+```{r Find enriched Progenitor motifs}
+motifsDo <- peakAnnoEnrichment(
+    seMarker = markerTest,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC <= -0.5"
+  )
+motifsDo
+```
+
+```{r Create dataframe of upregulated Progenitor motifs}
+df <- data.frame(TF = rownames(motifsDo), mlog10Padj = assay(motifsDo)[,1])
+df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+df$rank <- seq_len(nrow(df))
+head(df)
+```
+
+In this case, the most enriched motifs in the peaks that are more accessible in “Progenitor” cells correspond to RUNX, ELF, and CBFB motifs.
+
+```{r Generate and plot upregulated motifs in Progenitor cells}
+ggDo <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+        data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+        size = 1.5,
+        nudge_x = 2,
+        color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(FDR) Motif Enrichment") +
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+ggDo
+```
+
+We can now save a PDF version of these plots
+
+```{r Save PDF of motifs}
+plotPDF(ggUp, ggDo, name = "Erythroid-vs-Progenitor-Markers-Motifs-Enriched", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### Motif Enrichment in Marker Peaks
+
+Similar to the motif enrichment analyses performed on the differential peaks in the previous section, we can also perform motif enrichment on our marker peaks identified using getMarkerFeatures().
+
+To do this, we pass our marker peak SummarizedExperiment (markersPeaks) to the peakAnnotationEnrichment() function.
+
+```{r Find enriched peaks}
+enrichMotifs <- peakAnnoEnrichment(
+    seMarker = markersPeaks,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+The output of peakAnnoEnrichment() is a SummarizedExperiment object containing multiple assays that store the results of enrichment testing with the hypergeometric test.
+
+```{r Look at enriched motifs object}
+enrichMotifs
+```
+
+We can directly plot these motif enrichments across all cell groups using the plotEnrichHeatmap() function. In this function, we limit the total number of motifs shown per cell group using the n parameter.
+
+```{r Generate motif enrichments across all cell groups}
+heatmapEM <- plotEnrichHeatmap(enrichMotifs, n = 7, transpose = TRUE)
+```
+
+We can diplay this plot using ComplexHeatmap::draw().
+
+```{r Plot motif enrichments}
+ComplexHeatmap::draw(heatmapEM, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+Save PDF 
+
+```{r Save plot of enriched motifs}
+plotPDF(heatmapEM, name = "Motifs-Enriched-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### ArchR Enrichment
+
+In addition to testing peaks for enrichment of motifs, ArchR also enables the determination of more customizable enrichments. To facilitate this level of data exploration, we have curated a few different feature sets that can be easily tested for enrichment in your peak regions of interest. We describe each of those curated feature sets below. This type of analysis was originally inspired by [LOLA](http://code.databio.org/LOLA/).
+
+The ENCODE consortium has mapped TF binding sites (TFBSs) across a wide array of cell types and factors. We can use these TFBS collections to better understand our clusters. For example, in the context of truly unknown cell types, these enrichments could help to elucidate cell identity. To enable analyses with these ENCODE TFBS feature sets, we simply call the addArchRAnnotations() function with collection = "EncodeTFBS". Similar to what happens when using addPeakAnnotations(), this creates a binarized representation of the overlap between all marker peaks and all ENCODE TFBS.
+
+```{r Retrieve Encode TFBS}
+projHeme5 <- addArchRAnnotations(ArchRProj = projHeme5, collection = "EncodeTFBS")
+```
+
+We can then test for enrichment of these ENCODE TFBSs with our peak set using the peakAnnoEnrichment() function.
+
+```{r Look for peak enrichment overlap with encode TFBS}
+enrichEncode <- peakAnnoEnrichment(
+    seMarker = markersPeaks,
+    ArchRProj = projHeme5,
+    peakAnnotation = "EncodeTFBS",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+As previously, this function returns a SummarizedExperiment object.
+
+```{r Look at enriched encode peak overlap object}
+enrichEncode
+```
+
+We can create a heatmap from these enrichment results using the plotEnrichHeatmap() function.
+
+```{r Generate Heatmap}
+heatmapEncode <- plotEnrichHeatmap(enrichEncode, n = 7, transpose = TRUE)
+```
+
+And then plot this heatmap using ComplexHeatmap::draw().
+
+```{r Plot heatmap}
+ComplexHeatmap::draw(heatmapEncode, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+```{r Save PDF of heatmap}
+plotPDF(heatmapEncode, name = "EncodeTFBS-Enriched-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+This type of enrichment can also be done with bulk ATAC, [CODEX](http://codex.stemcells.cam.ac.uk) TFBS, as well as custom, user-defined annotations. All those intructions are found [here](https://www.archrproject.com/bookdown/custom-enrichment.html).
+
+
+### Integrative analysis with ArchR
+
+One of the many strengths of ArchR is its ability to integrate multiple levels of information that together will provide novel insights. These include
+
+1) scATAC-seq exclusive data: co-accessibility to predict regulatory interactions.
+2) scATAC-seq + scRNA-seq: prediction of enhancer activity through peak-to-gene linkage analysis
+
+#### Co-accessibility with scATAC-seq 
+
+When looking at co-accessibility, what we are asking or looking for  is, "If locus A is accessible, what other loci are open?". We should note that co-accessibility is a correlation, and does not always mean functional/regulatory links.
+
+To calculate co-accessibility in ArchR, we use the addCoAccessibility() function which stores peak co-accessibility information in the ArchRProject.
+
+```{r Calculate co-accessibility}
+projHeme5 <- addCoAccessibility(
+    ArchRProj = projHeme5,
+    reducedDims = "IterativeLSI"
+)
+```
+
+We can retrieve this co-accessibility information from the ArchRProject via the getCoAccessibility() function which returns a DataFrame object if returnLoops = FALSE.
+
+```{r Retrieve co-accessible information}
+cA <- getCoAccessibility(
+    ArchRProj = projHeme5,
+    corCutOff = 0.5,
+    resolution = 1,
+    returnLoops = FALSE
+)
+cA
 ```
 
 
