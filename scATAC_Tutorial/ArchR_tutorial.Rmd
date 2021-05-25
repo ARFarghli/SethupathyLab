@@ -6,26 +6,26 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-```{r eval = FALSE, include = FALSE}
+## ArchR Setup
+```{r install packages, eval = FALSE, include = FALSE}
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
 ArchR::installExtraPackages()
 ```
 
-
 ```{r install and load libraries, echo = F, message = F, warning = F}
 library(ArchR)
 set.seed(1)
 ```
 
-```{r message = F, warning = F}
+```{r set threads, message = F, warning = F}
 #set threads specific to your machine
 addArchRThreads(threads = 35) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
+[Here is more information on how the genomes are compiled and how to create a custom genome](https://www.archrproject.com/bookdown/getting-set-up.html)
 
 ```{r download tutorial data and add genome}
 inputFiles <- getTutorialData(tutorial = "Hematopoiesis")
@@ -34,7 +34,10 @@ addArchRGenome(genome = "hg19", install = FALSE)
 ```
 ### Creating Arrow Files
 
-ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. IAn Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk.
+ArchR uses arrow files, the base unit of an ArchR analytical project. Every arrow file stores all the data associated with an individual sample (i.e. a single replicate of a particular condition). During creation and as additional analyses are performed, ArchR updates and edits each Arrow file to contain additional layers of information. An Arrow file is actually just a path to an external file stored on disk. More explicitly, an Arrow file is not an R-language object that is stored in memory but rather an HDF5-format file stored on disk. Input files can be i) scATAC tabix files, (ii) fragment files, or (iii) bam files.
+
+[Here is the ArchR section on Arrow files](https://www.archrproject.com/bookdown/input-file-types-in-archr.html)
+[Here is more information on Hierarchical Data Format (HDF)](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)
 
 ```{r create arrowfiles, message = F, warning = F, cache = TRUE}
 ArrowFiles <- createArrowFiles(
@@ -49,70 +52,110 @@ ArrowFiles <- createArrowFiles(
 ArrowFiles
 ```
 
+### Per-cell Quality Control
 Quality Control of scATAC-seq data is essential to remove cells that contribute to low-quality data. There are three characteristics that scATAC considers 
-1. The number of unique nuclear fragments (i.e. not mapping to mitochondrial DNA).
-2. The signal-to-background ratio. Low signal-to-background ratio is often attributed to dead or dying cells which have de-chromatinzed DNA which allows for random transposition genome-wide.
-3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).
+1. The number of unique nuclear fragments (i.e. not mapping to mitochondrial DNA).  
+<br>
+2. The signal-to-background ratio. Low signal-to-background ratio is often attributed to dead or dying cells which have de-chromatinzed DNA which allows for random transposition genome-wide. We expect high local enrichment at TSS regions relative to flanking regions +/- 2kb. Traditionally, the per-base-pair accessibility is computed for each bulk ATAC-seq sample and then this profile is used to determine the TSS enrichment score, a slow and computationally expensive approach if used for scATAC. To accurately approximate the TSS enrichment score per single cell, we count the average accessibility within a 50-bp region centered at each single-base TSS position and divide this by the average accessibility of the TSS flanking positions (+/- 1900 – 2000 bp). This approximation was highly correlated (R > 0.99) with the original method and values were extremely close in magnitude.  
+<br>
+3. The fragment size distribution. Due to nucleosomal periodicity, we expect to see depletion of fragments that are the length of DNA wrapped around a nucleosome (approximately 147 bp).  
+<br>
+These QC metrics are performed during ArrowFile generation.  
+<br>
+[More inforamtion on how each of these metrics are determined with ArchR](https://www.archrproject.com/bookdown/per-cell-quality-control.html)
+<br>  
 
-ArchR also infers doublets, a single droplet that contains multiple cells.
-```{r infer doublets, message = F, warning = F, results = 'hide', cache = TRUE}
+### ArchR doublet inference
+ArchR also infers doublets, a single droplet that contains multiple cells. Determining and filtering out doublets are critical. Even 5% doublet rate exerts substantial effects on clustering. Doublets are effectively the average across two cells, and may appear as cell state/type intermediates.  
+<br>
+ArchR predicts doublets by synthesizing in-silico doublets, by merging reads from thousands of combinations of individual cells. These synthetic doublets are projected into the embedded UMAP and identify the nearest neighbor (real doublets). This process is iterated thousands of times to identify true doublets, "cells" whose signals looks very similar to the   By iterating this procedure thousands of times, ArchR identifies “cells” in our data whose signal looks very similar to synthetic doublets.  
+<br>
+[More details on how this approach was developed and validated](https://www.archrproject.com/bookdown/how-does-doublet-identification-work-in-archr.html)
+
+```{r infer doublets, cache = TRUE}
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
-  knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search.
+  knnMethod = "UMAP", #Refers to the embedding/dimensionality reduction method to be used for k-nearest neighbor search.
   LSIMethod = 1
 )
 ```
+A good scATAC-seq library will have an R^2 >.9 R^2 values less than .9 indicates cells with little heterogeneity. This makes the accuracy of doublet calling worse because the majority of doublets would be “homotypic” - or a single droplet with two very similar cells.  
+<br>
 
 ### Creating an ArchRProject
 ```{r Create ArchRProject, message = FALSE, cache = TRUE}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
-  copyArrows = TRUE #This is recommened so that you maintain an unaltered copy for later usage.
+  copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
 )
 ```
 
+There are many features to the ArchRProject that include manipulation, plotting sample statistics, fragments sizes, and TSS enrichment. A unique feature of ArchRProject is the ability to save and load the Project which allows for ease of sharing. [Check out more of these functions here](https://www.archrproject.com/bookdown/creating-an-archrproject.html)
+
 ```{r Filter ArchRProject, message = F, warning = F, cache = TRUE}
-#We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
+# We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
 getAvailableMatrices(proj)
 
-#Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
+# Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
 proj <- filterDoublets(ArchRProj = proj)
 ```
 
 ### Dimensionality Reduction and Clustering
-
+<br>
+Single cell genomics is a high dimensional data with approximately 20 000 dimensions corresponding to the protein coding gene. To visualize this data, dimensionality reduction techniques are used to visualize the data on UMAP or t-SNE. This is challenging with scATAC-seq because by nature, scATAC-seq is sparse (due to the binary nature of the data).  
+<br>
+[ArchR uses a standard Latent Semantic Indexing (LSI) approach.](https://www.archrproject.com/bookdown/dimensionality-reduction-with-archr.html) Briefly, LSI finds the most important region/peak for each sample. LSI reduces the dimensionality from thousands of uninformative  insertion counts to tens or hundreds informative, critical insertions.  
+<br>
+[Here is brief introduction to LSI](https://www.youtube.com/watch?v=Wd2iL7cJIv4&t=321s)
+[Here is a more in depth view into LSI, SVD, and TF-IDF](https://www.youtube.com/watch?v=hB51kkus-Rc&t=1s)
+[Here is more information on estimated LSI dimensionality reduction for large scATAC-seq datasets](https://www.archrproject.com/bookdown/estimated-lsi.html)
+[If the LSI approach isnt sufficient for batch correction, read here for batch correction using Harmony](https://www.archrproject.com/bookdown/batch-effect-correction-wtih-harmony.html)
+<br>
 ```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
-#ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
+# ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
 
-#To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
+# To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
 proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
 
-#We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
+# We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 ```
-
+<br>
+After identifying clusters in the LSI sub-space, ArchR embeddings such as UMAP and t-SNE can be used to visualie these clusters.
+<br>
 ```{r UMAP Visualization}
-#We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
+# We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
 p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
 p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ggAlignPlots(p1, p2, type = "h")
 ```
 
-```{r message = FALSE}
+```{r Save UMAP embedding as PDF, message = FALSE}
 #To save an editable vectorized version of this plot, we use the plotPDF() function.
 plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
         ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
 ```
 
-### Assigning Clusters with Gene Scores
+### Gene Scores and Marker Genes with ArchR
+<br>
+#### [Assigning Clusters with Gene Scores](https://www.archrproject.com/bookdown/single-cell-embeddings.html)
 
-The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by assigning cell-type specific markers to them. 
+The novelty of single cell approaches is to be able to resolve cellular heterogeneity in complex tissues. We can identify cells population by manually assigning cell-type specific markers to them. It is not possible to do this cell-type identification a priori.  
+<br>
+The manually annotation uses prior knowledge of cell type-specific marker genes and estimation of gene expression using gene scores. A gene score is a prediction of gene expression based on the accessibility of regulatory elements in the vicinity.  
+<br>
+[The gene score algorithm/model has three major components.](https://www.archrproject.com/bookdown/calculating-gene-scores-in-archr.html)
+1. Accessibility within the entire gene body contributes to the gene score.
+2. An exponential weighting function that accounts for the activity of putative distal regulatory elements in a distance-dependent fashion.
+3. Imposed gene boundaries that minimizes the contribution of unrelated regulatory elements to the gene score.
 
+First, we add imputation weights using [MAGIC](https://github.com/KrishnaswamyLab/MAGIC) to help smooth the dropout noise in our gene scores.
+
+#### Cell cluster assignment a posteriori 
 ```{r Assign genes to clusters, message = FALSE, cache = TRUE}
-#First, we add imputation weights using MAGIC **read up on MAGIC** to help smooth the dropout noise in our gene scores
 proj <- addImputeWeights(proj)
 
 #Now we can overlay our marker gene scores on our 2D UMAP embedding.
@@ -135,7 +178,7 @@ p <- plotEmbedding(
 )
 ```
 
-```{r}
+```{r Plot UMAP Marker Genes}
 #To plot a specific gene we can subset this plot list using the gene name.
 p$CD14
 
@@ -153,7 +196,7 @@ p2 <- lapply(p, function(x){
 })
 do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 ```
-
+<br>
 ```{r, message=FALSE}
 #Save an editable PDF version
 plotPDF(plotList = p, 
@@ -161,8 +204,900 @@ plotPDF(plotList = p,
     ArchRProj = proj, 
     addDOC = FALSE, width = 5, height = 5)
 ```
+<br>
+
+#### [Unbiased identification of marker features for cell clusters](https://www.archrproject.com/bookdown/identification-of-marker-features.html)
+<br>
+In addition to manual annotation of clusters, ArchR allows for unbiased identification of marker features (features being peaks, genes, or transcription factor motifs). This is done with the `getMarkerFeatures()` function with any matrix made up to this point (tiles, peaks, gene scores).
+
+```{r Marker gene identification using gene scores}
+# We'll begin by identifying marker genes using gene scores. Recall, gene scores were added when the ArchRProject was created in
+markersGS <- getMarkerFeatures(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+```
+We can then make a list of marker genes with the desired cutoffs and list for each cluster
+```{r Marker gene statistical and expression cutoff}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.25")
+markerList$C6
+```
+
+We can visualize all marker genes across all clusters simultaneously. Additionally, we can manually annotate known marker genes.
+```{r Visualize all marker genes}
+markerGenes  <- c(
+    "CD34", #Early Progenitor
+    "GATA1", #Erythroid
+    "PAX5", "MS4A1", "EBF1", "MME", #B-Cell Trajectory
+    "CD14", "CEBPB", "MPO", #Monocytes
+    "IRF8", 
+    "CD3D", "CD8A", "TBX21", "IL7R" #TCells
+  )
+
+heatmapGS <- markerHeatmap(
+  seMarker = markersGS, 
+  cutOff = "FDR <= 0.01 & Log2FC >= 1.25", 
+  labelMarkers = markerGenes,
+  transpose = TRUE
+)
+```
+
+```{r Save PDF of all marker genes}
+plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme2, addDOC = FALSE)
+```
+
+### Visualizing Genome Browser Tracks
+
+ArchR allows for visualization of genome browser tracks to browse local chromatin accessibility at marker genes on a per cluster basis. This is done by the following function `plotBrowserTrack()`.  
+
+```{r Plot browser track of markerGenes within each cluster}
+p <- plotBrowserTrack(
+    ArchRProj = proj, 
+    groupBy = "Clusters", 
+    geneSymbol = markerGenes, 
+    upstream = 50000,
+    downstream = 50000
+)
+```
+We can then select the gene marker we wish to visualize.  
+```{r view local chromatin accessibility flanking CD14}
+grid::grid.newpage()
+grid::grid.draw(p$CD14)
+```
+Lastly, we save the above figure with the following.  
+```{r save PDF of local chromatin accessibility flanking CD14}
+plotPDF(plotList = p, 
+    name = "Plot-Tracks-Marker-Genes.pdf", 
+    ArchRProj = proj, 
+    addDOC = FALSE, width = 5, height = 5)
+```
+### ArchR Shiny App
+
+ArchR natively supports an interactice genome browser through shiny app that can be launched with the following.
+```{r Load Shiny APp}
+ArchRBrowser(ArchRProj = proj)
+```
+### Saving and Loading an ArchRProject
+We can save the ArchRProject in session and load it at a later time. Saving copies the current ArchRProject object and all of the Arrow files to a specified directory (or the output directory specified earlier). Saving an ArchRProject allows us to easily load all computations we did in earlier steps, pr share the project with collaborators.  
+<br>
+Another way to leverage this save feature, we can run all the computational lines of code we did earlier on one Rmd, load the project on another Rmd to visualize the data. 
+```{r Save ArchRProject}
+proj <- saveArchRProject(ArchRProj = proj)
+```
+<br>
+```{r Load ArchRProject}
+proj <- loadArchRProject(path = "HemeTutorial")
+```
+
+### Defining Cluster Identity with scRNA-seq
+
+ArchR allows for scATAC/scRNA-seq integration, performed using the `FindTransferAnchors()` function from the Seurat package. ArchR scales this procedure by dividing the cells in numerous groups and performing alignments in parallel.  
+<br>
+Ultimately, we can associate gene expression to predicted cis-regulatory elements.
+```{r Download scRNA Hematopoiesis data}
+if(!file.exists("scRNA-Hematopoiesis-Granja-2019.rds")){
+    download.file(
+        url = "https://jeffgranja.s3.amazonaws.com/ArchR/TestData/scRNA-Hematopoiesis-Granja-2019.rds",
+        destfile = "scRNA-Hematopoiesis-Granja-2019.rds"
+    )
+}
+
+seRNA <- readRDS("scRNA-Hematopoiesis-Granja-2019.rds")
+seRNA
+```
+
+We can look at the metadata with the following line of code. Notice that BioClassification contains the cell type classification in the scRNA-seq dataset.
+```{r seRNA metadata}
+colnames(colData(seRNA))
+```
+and we can look at how many cells are in each cell-type.
+```{r Number of cells in each cell-type}
+table(colData(seRNA)$BioClassification)
+```
+
+#### Unconstrained Integration
+
+The first round of integration we perform will be a preliminary unconstrained integration, in which we do not identify any scATAC-seq clusters. We will use we use the addGeneIntegrationMatrix() function with either a Seurat object or a RangedSummarizedExperiment object via the seRNA parameter. There are other parameters that provide column names.
+
+*matrixName: Name for the integration matrix that will be stored in the ArchRProject 
+*cellColData
+  *nameCell: Cell ID from the matched scRNA-seq cell
+  *nameGroup: Group ID from the scRNA-seq cell
+  *nameScore: cross-platform integration score
+
+```{r Unconstrained integration of scRNA/ATAC-seq}
+projHeme2 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+```
+
+#### Preparing constrained integration
+We can then use the results of the unconstrained integration to further refine a constrained approach. In this tutorial, we want to identify which scRNA-seq cell types are most abundant in scATAC-seq clusters.  
+<br> 
+We will then identify T cells and NK cells from the unconstrained integration to refine our integrated approach.
+
+```{r Creat confusion matrix}
+cM <- as.matrix(confusionMatrix(projHeme2$Clusters, projHeme2$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments
+```
+The above list shows which scRNA-seq cell type is most abundant in each of the 12 scATAC-seq clusters. There may be traces of other cell types within these clusters.  
+<br>
+Now we'll look at **all** scRNA-seq cell type labels were used in the unconstrained integration.  
+```{r Identify cell type labels used in unconstrained integration}
+unique(unique(projHeme2$predictedGroup_Un))
+```
+From the above list, we can see that the clusters in the scRNA-seq data that correspond to T cells and NK cells are Clusters 19-25. We will create a string-based representation of these clusters to use in the downstream constrained integration and call this cTNK
+<br> 
+We will also create a string-based representation of non TNK cells and call that variable cNonTNK.  
+<br>
+Now, we want to be able to pull all the cells of interest from their respective clusters. To do this, we will use the `grep()` function which will use a defined pattern to extract rows. The `|` acts as an OR statement as grep looks through the rows of our confusion matrix.
+```{r create string of TNK and nonTNK identifiers}
+#From scRNA
+cTNK <- paste0(paste0(19:25), collapse="|")
+cNonTNK <- paste0(c(paste0("0", 1:9), 10:13, 15:18), collapse="|")
+cTNK
+cNonTNK
+```
+
+```{r Identify scATAC-seq clusters that correspond to most abundant scRNA-seq cell types.}
+#Assign scATAC to these categories
+clustTNK <- rownames(cM)[grep(cTNK, preClust)]
+clustTNK
+clustNonTNK <- rownames(cM)[grep(cNonTNK, preClust)]
+clustNonTNK
+```
+Using a similar approach, we will extract all cells that are TNK or Non TNK.
+```{r Extract TNK and nonTNK scRNA-seq cells}
+#RNA get cells in these categories
+rnaTNK <- colnames(seRNA)[grep(cTNK, colData(seRNA)$BioClassification)]
+head(rnaTNK)
+rnaNonTNK <- colnames(seRNA)[grep(cNonTNK, colData(seRNA)$BioClassification)]
+head(rnaNonTNK)
+```
+
+Now that we have all the scRNA/ATAC-seq cells, we'll create a nested list. This is a SimpleList within a SimpleList. We will have two groups: 1) T and NK within scATAC-seq and scRNA-seq and 2) non T and NK cells within scATAC-seq and scRNA-seq. Each of these SimpleList objects has two vectors of cell IDs, one called ATAC and one called RNA as shown below:
+<br>
+```{r Simplelist of objects we want to constrain}
+groupList <- SimpleList(
+    TNK = SimpleList(
+        ATAC = projHeme2$cellNames[projHeme2$Clusters %in% clustTNK],
+        RNA = rnaTNK
+    ),
+    NonTNK = SimpleList(
+        ATAC = projHeme2$cellNames[projHeme2$Clusters %in% clustNonTNK],
+        RNA = rnaNonTNK
+    )    
+)
+
+# We pass this list to the `groupList` parameter of the `addGeneIntegrationMatrix()` function to constrain our integration. Note that, in this case, we are still not adding these results to the Arrow files (`addToArrow = FALSE`). We recommend checking the results of the integration thoroughly against your expectations prior to saving the results in the Arrow files. We illustrate this process in the next section of the book.
+#~5 minutes
+projHeme2 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE, 
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Co",
+    nameGroup = "predictedGroup_Co",
+    nameScore = "predictedScore_Co"
+)
+```
+
+#### Compare unconstrained and constrained integrations
+
+```{r Create color palette}
+# We will create a color palette using the ArchR built in package
+pal <- paletteDiscrete(values = colData(seRNA)$BioClassification)
+pal
+```
+
+```{r Visualize unconstrained and constrained integrations}
+p1 <- plotEmbedding(
+    projHeme2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    pal = pal
+)
+p2 <- plotEmbedding(
+    projHeme2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Co", 
+    pal = pal
+)
+p1
+p2
+```
+
+```{r Save PDF of Integrated UMAPs}
+plotPDF(p1,p2, name = "Plot-UMAP-RNA-Integration.pdf", ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
+```
+Now we can save our ArchRProject with the updated ArrowFiles
+```{r Save ArchRProjet}
+saveArchRProject(ArchRProj = projHeme2, outputDirectory = "Save-ProjHeme2", load = FALSE)
+```
+
+#### Adding psuedo-scRNA-seq profiles for each scATAC-seq gene
+```{r Add psuedo-scRNA-seq gene expression profiles}
+#~5 minutes
+projHeme3 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = TRUE,
+    force= TRUE,
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell",
+    nameGroup = "predictedGroup",
+    nameScore = "predictedScore"
+)
+```
+
+GeneIntegrationMatrix should now be available to us
+```{r Check projHeme3 matrices}
+getAvailableMatrices(projHeme3)
+```
+
+We can compare the inferred gene expression obtained through gene scores, with the linked gene expression through integration. First we have to add magic imputations to our new project.
+
+```{r Add impute weights to projHeme3}
+projHeme3 <- addImputeWeights(projHeme3)
+```
+
+Now we'll make two separate UMAPs, one containing integrated gene expression (p1) and a second containing inferred gene expression (p2).
+
+```{r Assign marker genes and make integrated UMAP gene expression}
+markerGenes  <- c(
+    "CD34", #Early Progenitor
+    "GATA1", #Erythroid
+    "PAX5", "MS4A1", #B-Cell Trajectory
+    "CD14", #Monocytes
+    "CD3D", "CD8A", "TBX21", "IL7R" #TCells
+  )
+
+p1 <- plotEmbedding(
+    ArchRProj = projHeme3, 
+    colorBy = "GeneIntegrationMatrix", 
+    name = markerGenes, 
+    continuousSet = "horizonExtra",
+    embedding = "UMAP",
+    imputeWeights = getImputeWeights(projHeme3)
+)
+```
+
+```{r Make UMAP inferred gene of inferred gene expression}
+p2 <- plotEmbedding(
+    ArchRProj = projHeme3, 
+    colorBy = "GeneScoreMatrix", 
+    continuousSet = "horizonExtra",
+    name = markerGenes, 
+    embedding = "UMAP",
+    imputeWeights = getImputeWeights(projHeme3)
+)
+```
+
+```{r Use ArchR homemade function for plots and plot integrated UMAP}
+p1c <- lapply(p1, function(x){
+    x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+        axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank()
+    )
+})
+
+p2c <- lapply(p2, function(x){
+    x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+        axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank()
+    )
+})
+
+do.call(cowplot::plot_grid, c(list(ncol = 3), p1c))
+```
+
+```{r Plot inferred gene expression UMAP}
+do.call(cowplot::plot_grid, c(list(ncol = 3), p2c))
+```
+
+```{r Save PDF of plot}
+plotPDF(plotList = p1, 
+    name = "Plot-UMAP-Marker-Genes-RNA-W-Imputation.pdf", 
+    ArchRProj = projHeme3, 
+    addDOC = FALSE, width = 5, height = 5)
+```
+#### Label scATAC-seq clusters with scRNA-seq information
+
+First we'll make a confusionMatrix between scATAC-seq clusters and predicted groups from the integrated analysis.
+```{r}
+cM <- confusionMatrix(projHeme3$Clusters, projHeme3$predictedGroup)
+labelOld <- rownames(cM)
+labelOld
+#  [1] "Cluster11" "Cluster2"  "Cluster12" "Cluster1"  "Cluster8"  "Cluster4" 
+#  [7] "Cluster9"  "Cluster5"  "Cluster7"  "Cluster14" "Cluster3"  "Cluster10"
+# [13] "Cluster6"  "Cluster13"
+```
+Identify the cell-type that best defines scATAC-seq cluster
+```{r}
+labelNew <- colnames(cM)[apply(cM, 1, which.max)]
+labelNew
+```
+We'll now assign the colloquial names to all the possible clusters
+```{r}
+remapClust <- c(
+    "01_HSC" = "Progenitor",
+    "02_Early.Eryth" = "Erythroid",
+    "03_Late.Eryth" = "Erythroid",
+    "04_Early.Baso" = "Basophil",
+    "05_CMP.LMPP" = "Progenitor",
+    "06_CLP.1" = "CLP",
+    "07_GMP" = "GMP",
+    "08_GMP.Neut" = "GMP",
+    "09_pDC" = "pDC",
+    "10_cDC" = "cDC",
+    "11_CD14.Mono.1" = "Mono",
+    "12_CD14.Mono.2" = "Mono",
+    "13_CD16.Mono" = "Mono",
+    "15_CLP.2" = "CLP",
+    "16_Pre.B" = "PreB",
+    "17_B" = "B",
+    "18_Plasma" = "Plasma",
+    "19_CD8.N" = "CD8.N",
+    "20_CD4.N1" = "CD4.N",
+    "21_CD4.N2" = "CD4.N",
+    "22_CD4.M" = "CD4.M",
+    "23_CD8.EM" = "CD8.EM",
+    "24_CD8.CM" = "CD8.CM",
+    "25_NK" = "NK"
+)
+remapClust <- remapClust[names(remapClust) %in% labelNew]
+```
+
+We will map the new colloquial cluster names to the confusion matrix character vector. To do this, we will provide the colloquial and technical labels provided in `remapClust` to map onto `labelNew`.
+
+```{r}
+labelNew2 <- mapLabels(labelNew, oldLabels = names(remapClust), newLabels = remapClust)
+labelNew2
+#  [1] "GMP"        "B"          "PreB"       "CD4.N"      "Mono"      
+#  [6] "Erythroid"  "Progenitor" "CD4.M"      "pDC"        "NK"        
+# [11] "CLP"        "Mono"
+```
+
+We will now create a new column in projHeme3 that contains the new colloquial labels, and use that to label the UMAP 
+```{r Use colloquial labels for UMAP}
+projHeme3$Clusters2 <- mapLabels(projHeme3$Clusters, newLabels = labelNew2, oldLabels = labelOld)
+p1 <- plotEmbedding(projHeme3, colorBy = "cellColData", name = "Clusters2")
+p1
+```
+
+```{r Save PDF of colloquially labels UMAP clusters}
+plotPDF(p1, name = "Plot-UMAP-Remap-Clusters.pdf", ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
+```
+
+```{r Save projHeme3}
+saveArchRProject(ArchRProj = projHeme3, outputDirectory = "Save-ProjHeme3", load = FALSE)
+```
+
+### Creating psuedo-bulk replicates in ArchR
+
+There are analyses that we cannot do with the single-cell data due to the nature of its sparcity. To overcome this, we can use ArchR to create psuedo-bulk replicates. This generates data that resembles a bulk ATAC-seq library.
+
+We do this by grouping together single-cells derived from cell cluster or supersets of clusters. The ArchR process for making psuedo-bulk replicates is quite technical. [Read more here](https://www.archrproject.com/bookdown/pseudo-bulk-replicates-in-archr.html)
+
+We will group cells from clusters, and we will used clusters defined by scRNA-seq integration in the last step. 
+**NOTE: This grouping is not available if you did not integrate your across libraries. An alternative grouping will need to be used**
+```{r Generate psuedo bulk libraries}
+projHeme4 <- addGroupCoverages(ArchRProj = projHeme3, groupBy = "Clusters2")
+```
+
+### Calling bulk replicate peaks with ArchR
+
+ArchR has their own proprietary, fixed widt, hpeak calling method. Other methods of peak calling include bedtools merge, bedtools cluster. They both have their own short comings that are resolved by the ArchR iterative overlap approach. You can also add in your own peak set. Read more [here](https://www.archrproject.com/bookdown/the-iterative-overlap-peak-merging-procedure.html)
+
+ArchR looks for Macs2 for for peak calling. If it cannt find it, add it using the following code
+
+```{r Path to Mac2}
+pathToMacs2 <- findMacs2()
+```
+
+Now we can begin to generate a merged peak set with ArchR using `addReproduciblePeakSet()`. There are many other parameters we can play around with, so be sure to look through them with `~?addReproduciblePeakSet`.
+**Note: We can only have one peak set per ArchRProject. If you would like to experiment with different peak sets, you must save a copy of your ArchRProject and thus also copy the Arrow files.**
+
+#### Peak calling with Macs2
+
+```{r}
+projHeme4 <- addReproduciblePeakSet(
+    ArchRProj = projHeme4, 
+    groupBy = "Clusters2", 
+    pathToMacs2 = pathToMacs2
+)
+```
+
+We can retrieve these peaks as a GRanges object  with `getPeakSet()`. The peak set contains annotation for the group from which each peak originated. This does not mean the peak was only found in that group. Rather, the annotated group had the highest significance of that peak call.
+
+```{r Retrieve peak annotations}
+getPeakSet(projHeme4)
+```
+
+#### Peak calling with native ArchR approach, TileMatrix
+
+We can call peaks with the native ArchR approach. ArchR recommends using Macs2 unless absolutely necessary. We will go through how to use this native ArchR peak caller, and how to compare the two approaches
+
+To use the native peak caller, we set the paramter `method` to `p`.
+```{r ArchR native peak caller}
+projHemeTmp <- addReproduciblePeakSet(
+    ArchRProj = projHeme4, 
+    groupBy = "Clusters2",
+    peakMethod = "Tiles",
+    method = "p"
+)
+```
+
+```{r Retrieve TileMatrix peaks}
+getPeakSet(projHemeTmp)
+```
+
+#### Compare both peak calling approaches
+
+We can compare the peak sets generated by both approaches by looking at the percent of overlapping peaks
+
+First we'll look at MACS2-called peaks that are overlapped by the TileMatrix-called peaks
+```{r MACS2-called peaks overlapped by TileMatrix-called peaks}
+length(subsetByOverlaps(getPeakSet(projHeme4), getPeakSet(projHemeTmp))) / length(getPeakSet(projHeme4))
+```
+
+Then, we check the converse - the percent of TileMatrix-called peaks that are overlapped by MACS2-called peaks. You can see that this overlap is not as strong.
+```{r TileMatrix-called peaks overlapped by MACS2-called peaks}
+length(subsetByOverlaps(getPeakSet(projHemeTmp), getPeakSet(projHeme4))) / length(getPeakSet(projHemeTmp))
+```
+
+If we increase the margins of the peaks to be wider (1000-bp peaks instead of 500-bp peaks), the percent of MACS2-called peaks that are overlapped does not change much.
+```{r MACS2-called peaks overlapped by TileMatrix-called peaks 1000-margin}
+length(subsetByOverlaps(resize(getPeakSet(projHeme4), 1000, "center"), getPeakSet(projHemeTmp))) / length(getPeakSet(projHeme4))
+```
+
+But the percent of TileMatrix-called peaks overlapped by MACS2 does increase.
+```{r TileMatrix-called peaks overlapped by MACS2-called peaks 1000-margin}
+length(subsetByOverlaps(getPeakSet(projHemeTmp), resize(getPeakSet(projHeme4), 1000, "center"))) / length(getPeakSet(projHemeTmp))
+```
+
+We'll now save our ArchRProject with our preferred peak set, in this case MACS2 peaks.
+
+```{r Save ArchRProject with peak calls}
+saveArchRProject(ArchRProj = projHeme4, outputDirectory = "Save-ProjHeme4", load = FALSE)
+```
+
+We'll now prepare this data for downstream analyses.
+
+```{r Create Project with peakMatrix}
+projHeme5 <- addPeakMatrix(projHeme4)
+```
+
+Let's verify that `"PeakMatrix"` is available.
+
+```{r Check available Matrices}
+getAvailableMatrices(projHeme5)
+```
+
+### Identifying marker peaks in psuedo-bulk sets
+
+We previously used `getMarkerFeatures()` to identify markers with gene scores. We can use this function on any matrix to identify marker features stored in our ArchRProject. Marker features are features that are unique to a specific cell grouping that can be used to understand cell-type or cluster specific biology.
+
+First, lets look at the cell-types and relative proportions
+```{r View scRNA overylayed labels}
+#Our scRNA labels
+table(projHeme5$Clusters2)
+```
+
+We can tell ArchR to identify marker peaks in an unsupervised fashion using `addMarkerFeatures()` function in combination with `useMatrix = "PeakMatrix"`. Additionally, we will tell ArchR to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
+
+```{r Identify Psuedo Bulk Marker peaks}
+markersPeaks <- getMarkerFeatures(
+    ArchRProj = projHeme5, 
+    useMatrix = "PeakMatrix", 
+    groupBy = "Clusters2",
+  bias = c("TSSEnrichment", "log10(nFrags)"),
+  testMethod = "wilcoxon"
+)
+```
+
+The object returned by the getMarkerFeatures() function is a SummarizedExperiment that contains a few different assays.
+
+```{r View psuedo bulk assays}
+markersPeaks
+```
+
+We can use the getMarkers() function to retrieve particular slices of this SummarizedExperiment that we are interested in. The default behavior of this function is to return a list of DataFrame objects, one for each cell group.
+
+```{r Retrieve Markers}
+markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+markerList
+```
+
+If we are interested in the marker peaks for a specific cell group, we can access this from the list via the $ accessor.
+
+```{r Look at Erythroid Marker peaks}
+markerList$Erythroid
+```
+
+Instead of a list of DataFrame objects, we can use getMarkers() to return a GRangesList object by setting returnGR = TRUE.
+
+```{r Retrive markers as GRangesList object}
+markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", returnGR = TRUE)
+markerList
+```
+
+This GRangesList object can similarly be subset to a GRanges object for a particular cell group using the $ accessor.
+
+```{r Look at Erythroid Marker peaks in GRanges Object}
+markerList$Erythroid
+```
+
+#### Plot Psuedo-bulk Marker Peaks
+
+We can visualize these marker peaks (or any features output by getMarkerFeatures()) as a heatmap using the markerHeatmap() function
+
+```{r Visualize marker peaks as heatmaps}
+heatmapPeaks <- markerHeatmap(
+  seMarker = markersPeaks, 
+  cutOff = "FDR <= 0.1 & Log2FC >= 0.5",
+  transpose = TRUE
+)
+```
+
+We can plot this heatmap using `draw()`.
+
+```{r Plot heatmap of marker peaks across all clusters}
+draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+To save an editable vectorized version of this plot, we use the plotPDF() function.
+
+```{r Save PDF of heatmap}
+plotPDF(heatmapPeaks, name = "Peak-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+##### MA and Volcano Plots
+
+```{r Marker Peaks MA plot}
+pma <- markerPlot(seMarker = markersPeaks, name = "Erythroid", cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "MA")
+pma
+```
+
+Similarly, for a Volcano plot, we specify plotAs = "Volcano".
+
+```{r Marker Peaks Volcano plot}
+pv <- markerPlot(seMarker = markersPeaks, name = "Erythroid", cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
+pv
+```
+
+To save an editable vectorized version of these plots, we use the plotPDF() function.
+
+```{r Save Volcano and MA plot as PDF}
+plotPDF(pma, pv, name = "Erythroid-Markers-MA-Volcano", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+##### Psuedo-bulk browser tracks
+
+Additionally we can see these peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameters in the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot. Here we specify plotting the GATA1 gene via the geneSymbol parameter.
+
+```{r Generate GATA1 Browser tracks}
+p <- plotBrowserTrack(
+    ArchRProj = projHeme5, 
+    groupBy = "Clusters2", 
+    geneSymbol = c("GATA1"),
+    features =  getMarkers(markersPeaks, cutOff = "FDR <= 0.1 & Log2FC >= 1", returnGR = TRUE)["Erythroid"],
+    upstream = 50000,
+    downstream = 50000
+)
+```
+
+We can plot this using grid::grid.draw().
+
+```{r Plot GATA1 Browser track}
+grid::grid.newpage()
+grid::grid.draw(p$GATA1)
+```
+
+To save an editable vectorized version of this plot, we use the plotPDF() function.
+
+```{r Save GATA1 Browser track as PDF}
+plotPDF(p, name = "Plot-Tracks-With-Features", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### [Pairwise Testing between groups](https://www.archrproject.com/bookdown/pairwise-testing-between-groups.html)
+
+Marker feature identification is a very specific type of differential test. However, ArchR also enables standard differential testing using the same getMarkerFeatures() function. The trick is to set useGroups to one of the two cell groups and bgdGroups to the other cell group. This performs a differential test between the two provided groups. In all of these differential tests, the peaks that are higher in the group passed to `useGroups` will have positive fold change values while the peaks that are higher in the group passed to `bgdGroups` will have negative fold change values.
+
+For this tutorial we'll do differential analyses between Erythroid (as `useGroups`) and Progenitor (as `bgdGroups`) cell groups.
+
+```{r Differential test between Erythroid and Progenitor cell groups}
+markerTest <- getMarkerFeatures(
+  ArchRProj = projHeme5, 
+  useMatrix = "PeakMatrix",
+  groupBy = "Clusters2",
+  testMethod = "wilcoxon",
+  bias = c("TSSEnrichment", "log10(nFrags)"),
+  useGroups = "Erythroid",
+  bgdGroups = "Progenitor"
+)
+```
+
+We can make MA and volcano plots of this differential test.
+
+```{r Manhattan plot DE}
+pma <- markerPlot(seMarker = markerTest, name = "Erythroid", cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "MA")
+pma
+```
+
+```{r Volcano Plot of DE}
+pv <- markerPlot(seMarker = markerTest, name = "Erythroid", cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "Volcano")
+pv
+```
+
+```{r Save PDF of MA and volcano plots}
+plotPDF(pma, pv, name = "Erythroid-vs-Progenitor-Markers-MA-Volcano", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+### Motif and Feature Enrichment
+
+Now that we have a robust marker peak set, we can now ask the question, which TF binding motifs are enriched within these accessible regions?  In a similar fashion, we might want to test various groups of peaks for enrichment of other known features. For example, we might want to know if cell type-specific ATAC-seq peaks for cell type A are enriched for another set of genomic regions such as ChIP-seq peaks. 
+
+We'll first start by looking for motifs that are enriched in peaks that up or downregulated in various cell types. First we must add add these motif annotations to our ArchRProject. This effectively creates a binary matrix where the presence of a motif in each peak is indicated numerically. We do this using the addMotifAnnotations() function which determines motif presence in the peak set stored in the ArchRProject.
+
+```{r Add Motif annotations to our ArchR Project}
+projHeme5 <- addMotifAnnotations(ArchRProj = projHeme5, motifSet = "cisbp", name = "Motif")
+```
+
+We can then use the differential testing SummarizedExperiment object markerTest (generated in the previous chapter) to define the set of significantly differential peaks that we are interested in testing for motif enrichment. In this case, we are looking for peaks that have an FDR <= 0.1 and a Log2FC >= 0.5. In the context of the differential comparison made in markerTest, these represent peaks that are more accessible in “Erythroid” cells than “Progenitor” cells. We can test these differentially accessible peaks for enrichment of various motifs using the peakAnnoEnrichment() function. This function is a generalizable function that can be used for many different enrichment tests as we will demonstrate throughout this chapter.
+
+```{r}
+motifsUp <- peakAnnoEnrichment(
+    seMarker = markerTest,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+The output of peakAnnoEnrichment() is a SummarizedExperiment object containing multiple assays that store the results of enrichment testing with the hypergeometric test.
+
+```{r Look at motif results}
+motifsUp
+```
+
+To prepare this data for plotting with ggplot we can create a simplified data.frame object containing the motif names, the corrected p-values, and the significance rank.
+
+```{r Create date.frame and look at motif names}
+df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+df$rank <- seq_len(nrow(df))
+head(df)
+```
+
+Using ggplot we can plot the rank-sorted TF motifs and color them by the significance of their enrichment. Here we use ggrepel to label each TF motif.
+
+```{r Generate and plot Erythroid enriched motifs}
+ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+        data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+        size = 1.5,
+        nudge_x = 2,
+        color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(P-adj) Motif Enrichment") + 
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+ggUp
+```
+
+We can also look at motifs upregulated in Progenitor cells by using peaks with Log2FC <= -0.5.
+
+```{r Find enriched Progenitor motifs}
+motifsDo <- peakAnnoEnrichment(
+    seMarker = markerTest,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC <= -0.5"
+  )
+motifsDo
+```
+
+```{r Create dataframe of upregulated Progenitor motifs}
+df <- data.frame(TF = rownames(motifsDo), mlog10Padj = assay(motifsDo)[,1])
+df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+df$rank <- seq_len(nrow(df))
+head(df)
+```
+
+In this case, the most enriched motifs in the peaks that are more accessible in “Progenitor” cells correspond to RUNX, ELF, and CBFB motifs.
+
+```{r Generate and plot upregulated motifs in Progenitor cells}
+ggDo <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+        data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+        size = 1.5,
+        nudge_x = 2,
+        color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(FDR) Motif Enrichment") +
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+ggDo
+```
+
+We can now save a PDF version of these plots
+
+```{r Save PDF of motifs}
+plotPDF(ggUp, ggDo, name = "Erythroid-vs-Progenitor-Markers-Motifs-Enriched", width = 5, height = 5, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### Motif Enrichment in Marker Peaks
+
+Similar to the motif enrichment analyses performed on the differential peaks in the previous section, we can also perform motif enrichment on our marker peaks identified using getMarkerFeatures().
+
+To do this, we pass our marker peak SummarizedExperiment (markersPeaks) to the peakAnnotationEnrichment() function.
+
+```{r Find enriched peaks}
+enrichMotifs <- peakAnnoEnrichment(
+    seMarker = markersPeaks,
+    ArchRProj = projHeme5,
+    peakAnnotation = "Motif",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+The output of peakAnnoEnrichment() is a SummarizedExperiment object containing multiple assays that store the results of enrichment testing with the hypergeometric test.
+
+```{r Look at enriched motifs object}
+enrichMotifs
+```
+
+We can directly plot these motif enrichments across all cell groups using the plotEnrichHeatmap() function. In this function, we limit the total number of motifs shown per cell group using the n parameter.
+
+```{r Generate motif enrichments across all cell groups}
+heatmapEM <- plotEnrichHeatmap(enrichMotifs, n = 7, transpose = TRUE)
+```
+
+We can diplay this plot using ComplexHeatmap::draw().
+
+```{r Plot motif enrichments}
+ComplexHeatmap::draw(heatmapEM, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+Save PDF 
+
+```{r Save plot of enriched motifs}
+plotPDF(heatmapEM, name = "Motifs-Enriched-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+#### ArchR Enrichment
+
+In addition to testing peaks for enrichment of motifs, ArchR also enables the determination of more customizable enrichments. To facilitate this level of data exploration, we have curated a few different feature sets that can be easily tested for enrichment in your peak regions of interest. We describe each of those curated feature sets below. This type of analysis was originally inspired by [LOLA](http://code.databio.org/LOLA/).
+
+The ENCODE consortium has mapped TF binding sites (TFBSs) across a wide array of cell types and factors. We can use these TFBS collections to better understand our clusters. For example, in the context of truly unknown cell types, these enrichments could help to elucidate cell identity. To enable analyses with these ENCODE TFBS feature sets, we simply call the addArchRAnnotations() function with collection = "EncodeTFBS". Similar to what happens when using addPeakAnnotations(), this creates a binarized representation of the overlap between all marker peaks and all ENCODE TFBS.
+
+```{r Retrieve Encode TFBS}
+projHeme5 <- addArchRAnnotations(ArchRProj = projHeme5, collection = "EncodeTFBS")
+```
+
+We can then test for enrichment of these ENCODE TFBSs with our peak set using the peakAnnoEnrichment() function.
+
+```{r Look for peak enrichment overlap with encode TFBS}
+enrichEncode <- peakAnnoEnrichment(
+    seMarker = markersPeaks,
+    ArchRProj = projHeme5,
+    peakAnnotation = "EncodeTFBS",
+    cutOff = "FDR <= 0.1 & Log2FC >= 0.5"
+  )
+```
+
+As previously, this function returns a SummarizedExperiment object.
+
+```{r Look at enriched encode peak overlap object}
+enrichEncode
+```
+
+We can create a heatmap from these enrichment results using the plotEnrichHeatmap() function.
+
+```{r Generate Heatmap}
+heatmapEncode <- plotEnrichHeatmap(enrichEncode, n = 7, transpose = TRUE)
+```
+
+And then plot this heatmap using ComplexHeatmap::draw().
+
+```{r Plot heatmap}
+ComplexHeatmap::draw(heatmapEncode, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
+
+```{r Save PDF of heatmap}
+plotPDF(heatmapEncode, name = "EncodeTFBS-Enriched-Marker-Heatmap", width = 8, height = 6, ArchRProj = projHeme5, addDOC = FALSE)
+```
+
+This type of enrichment can also be done with bulk ATAC, [CODEX](http://codex.stemcells.cam.ac.uk) TFBS, as well as custom, user-defined annotations. All those intructions are found [here](https://www.archrproject.com/bookdown/custom-enrichment.html).
 
 
+### Integrative analysis with ArchR
+
+One of the many strengths of ArchR is its ability to integrate multiple levels of information that together will provide novel insights. These include
+
+1) scATAC-seq exclusive data: co-accessibility to predict regulatory interactions.
+2) scATAC-seq + scRNA-seq: prediction of enhancer activity through peak-to-gene linkage analysis
+
+#### Co-accessibility with scATAC-seq 
+
+When looking at co-accessibility, what we are asking or looking for  is, "If locus A is accessible, what other loci are open?". We should note that co-accessibility is a correlation, and does not always mean functional/regulatory links.
+
+To calculate co-accessibility in ArchR, we use the addCoAccessibility() function which stores peak co-accessibility information in the ArchRProject.
+
+```{r Calculate co-accessibility}
+projHeme5 <- addCoAccessibility(
+    ArchRProj = projHeme5,
+    reducedDims = "IterativeLSI"
+)
+```
+
+We can retrieve this co-accessibility information from the ArchRProject via the getCoAccessibility() function which returns a DataFrame object if returnLoops = FALSE.
+
+```{r Retrieve co-accessible information}
+cA <- getCoAccessibility(
+    ArchRProj = projHeme5,
+    corCutOff = 0.5,
+    resolution = 1,
+    returnLoops = FALSE
+)
+cA
+```
 
 
 
