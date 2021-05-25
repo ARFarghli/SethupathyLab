@@ -21,7 +21,7 @@ set.seed(1)
 
 ```{r set threads, message = F, warning = F}
 #set threads specific to your machine
-addArchRThreads(threads = 35) 
+addArchRThreads(threads = 22) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
@@ -85,21 +85,118 @@ A good scATAC-seq library will have an R^2 >.9 R^2 values less than .9 indicates
 
 ### Creating an ArchRProject
 ```{r Create ArchRProject, message = FALSE, cache = TRUE}
-proj <- ArchRProject(
+projHeme1 <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
-  copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
+  copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
 )
+projHeme1
 ```
+
+We can see from the above that our ArchRProject has been initialized with a few important attributes:
+
+The specified outputDirectory.
+The sampleNames of each sample which were obtained from the Arrow files.
+A matrix called sampleColData which contains data associated with each sample.
+A matrix called cellColData which contains data associated with each cell. Because we already computed doublet enrichment scores using addDoubletScores(), which added those values to each cell in the Arrow files, we can see columns corresponding to the “DoubletEnrichment” and “DoubletScore” in the cellColData matrix.
+The total number of cells in our project which represents all samples after doublet identification and removal.
+The median TSS enrichment score and the median number of fragments across all cells and all samples.
+We can check how much memory is used to store the ArchRProject in memory within R:
 
 There are many features to the ArchRProject that include manipulation, plotting sample statistics, fragments sizes, and TSS enrichment. A unique feature of ArchRProject is the ability to save and load the Project which allows for ease of sharing. [Check out more of these functions here](https://www.archrproject.com/bookdown/creating-an-archrproject.html)
 
-```{r Filter ArchRProject, message = F, warning = F, cache = TRUE}
+```{r Filter doublets ArchRProject, message = F, warning = F, cache = TRUE}
+paste0("Memory Size = ", round(object.size(projHeme1) / 10^6, 3), " MB")
 # We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
 getAvailableMatrices(proj)
+```
 
+#### Plotting Sample Statistics from an ArchRProject
+
+```{r Ridge plot for each sample for the TSS enrichment scores}
+p1 <- plotGroups(
+    ArchRProj = projHeme1, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "TSSEnrichment",
+    plotAs = "ridges"
+   )
+p1
+```
+
+To make a violin plot, we set plotAs = "violin". Violin plots in ArchR come with a box-and-whiskers plot in the style of Tukey as implemented by ggplot2. This means that the lower and upper hinges correspond to the 25th and 75th percentiles, respectively, and the middle corresponds to the median. The lower and upper whiskers extend from the hinge to the lowest or highest value or 1.5 times the interquartile range (the distance between the 25th and 75th percentiles).
+
+```{r Violin plot for each sample for the TSS enrichment scores}
+p2 <- plotGroups(
+    ArchRProj = projHeme1, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "TSSEnrichment",
+    plotAs = "violin",
+    alpha = 0.4,
+    addBoxPlot = TRUE
+   )
+p2
+```
+
+```{r Ridge plot for each sample for the log10(unique nuclear fragments}
+p3 <- plotGroups(
+    ArchRProj = projHeme1, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "log10(nFrags)",
+    plotAs = "ridges"
+   )
+```
+
+```{r Violin plot for each sample for the log10(unique nuclear fragments}
+p4 <- plotGroups(
+    ArchRProj = projHeme1, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "log10(nFrags)",
+    plotAs = "violin",
+    alpha = 0.4,
+    addBoxPlot = TRUE
+   )
+```
+
+
+```{r Save plots}
+plotPDF(p1,p2,p3,p4, name = "QC-Sample-Statistics.pdf", ArchRProj = projHeme1, addDOC = FALSE, width = 4, height = 4)
+```
+
+#### Plot sample fragment sizes
+
+```{r Sample fragment sizes}
+p1 <- plotFragmentSizes(ArchRProj = projHeme1)
+p1
+```
+
+```{r TSS enrichment}
+p2 <- plotTSSEnrichment(ArchRProj = projHeme1)
+p2
+```
+
+```{r }
+plotPDF(p1,p2, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = projHeme1, addDOC = FALSE, width = 5, height = 5)
+```
+
+ArchR provides a facile way to save an ArchRProject object to either re-load at a later time or share with other users. Fundamentally, an ArchRProject points to a set of Arrow files. Because of this, the process of saving an ArchRProject using the saveArchRProject() function will:
+
+Copy the current Arrow files to the designated outputDirectory so that they are exclusively associated with the new ArchRProject object.
+Save a copy of the designated ArchRProject in the outputDirectory.
+For example, we can save our projHeme1 using saveArchRProject() which will allow us to use this project in future chapters.
+
+```{r}
+saveArchRProject(ArchRProj = projHeme1, outputDirectory = "Save-ProjHeme1", load = FALSE)
+```
+
+This will copy the Arrow files and save a .RDS file of the projHeme1 ArchRProject object in the specified outputDirectory. Very important! This process does NOT automatically update the ArchRProject object that is active in your current R session. Specifically, the object named projHeme1 in the current R session will still point to the original location of the Arrow files, not the copied Arrow files that reside in the specified outputDirectory. If we wanted to do this, we would specify load = TRUE which causes the saveArchRProject() function to return the saved ArchRProject object which you can assign to overwrite the original ArchRProject object using <-. This effectively saves and loads the ArchRProject from its new location.
+
+```{r}
 # Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
-proj <- filterDoublets(ArchRProj = proj)
+projHeme2 <- filterDoublets(projHeme1)
 ```
 
 ### Dimensionality Reduction and Clustering
@@ -113,9 +210,26 @@ Single cell genomics is a high dimensional data with approximately 20 000 dimens
 [Here is more information on estimated LSI dimensionality reduction for large scATAC-seq datasets](https://www.archrproject.com/bookdown/estimated-lsi.html)
 [If the LSI approach isnt sufficient for batch correction, read here for batch correction using Harmony](https://www.archrproject.com/bookdown/batch-effect-correction-wtih-harmony.html)
 <br>
-```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
+
+```{r}
 # ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
-proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
+projHeme2 <- addIterativeLSI(
+    ArchRProj = projHeme2,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(0.2), 
+        sampleCells = 10000, 
+        n.start = 10
+    ), 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
+
 
 # To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
 proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
