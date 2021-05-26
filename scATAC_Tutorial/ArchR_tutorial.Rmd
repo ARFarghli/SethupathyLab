@@ -16,6 +16,7 @@ ArchR::installExtraPackages()
 
 ```{r install and load libraries, echo = F, message = F, warning = F}
 library(ArchR)
+library(knitr)
 set.seed(1)
 ```
 
@@ -178,7 +179,7 @@ p2 <- plotTSSEnrichment(ArchRProj = projHeme1)
 p2
 ```
 
-```{r }
+```{r Save PDF of Fragment sizes}
 plotPDF(p1,p2, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = projHeme1, addDOC = FALSE, width = 5, height = 5)
 ```
 
@@ -188,13 +189,13 @@ Copy the current Arrow files to the designated outputDirectory so that they are 
 Save a copy of the designated ArchRProject in the outputDirectory.
 For example, we can save our projHeme1 using saveArchRProject() which will allow us to use this project in future chapters.
 
-```{r}
+```{r Save projHeme1}
 saveArchRProject(ArchRProj = projHeme1, outputDirectory = "Save-ProjHeme1", load = FALSE)
 ```
 
 This will copy the Arrow files and save a .RDS file of the projHeme1 ArchRProject object in the specified outputDirectory. Very important! This process does NOT automatically update the ArchRProject object that is active in your current R session. Specifically, the object named projHeme1 in the current R session will still point to the original location of the Arrow files, not the copied Arrow files that reside in the specified outputDirectory. If we wanted to do this, we would specify load = TRUE which causes the saveArchRProject() function to return the saved ArchRProject object which you can assign to overwrite the original ArchRProject object using <-. This effectively saves and loads the ArchRProject from its new location.
 
-```{r}
+```{r Filter Doublets}
 # Next we can filter out putative doublets based on the scores established in the `infer doublets` chunk. Importantly, this does not delete the data from the Arrow files, but rather forces ArchRProject to ignore these cells. 
 projHeme2 <- filterDoublets(projHeme1)
 ```
@@ -211,7 +212,7 @@ Single cell genomics is a high dimensional data with approximately 20 000 dimens
 [If the LSI approach isnt sufficient for batch correction, read here for batch correction using Harmony](https://www.archrproject.com/bookdown/batch-effect-correction-wtih-harmony.html)
 <br>
 
-```{r}
+```{r Run LSI}
 # ArchR implements an iterative LSI dimensionality reduction via the addIterativeLSI() function.
 projHeme2 <- addIterativeLSI(
     ArchRProj = projHeme2,
@@ -228,22 +229,87 @@ projHeme2 <- addIterativeLSI(
 )
 ```
 
-```{r Dimensionality Reduction, UMAP Generation and Visualization, message = F, warning = F, cache = TRUE}
+If you see downstream that you have subtle batch effects, another option is to add more LSI iterations and to start from a lower initial clustering resolution as shown below. Additionally the number of variable features can be lowered to increase focus on the more variable features.
 
+We will name this reducedDims object “IterativeLSI2” for illustrative purposes but we won’t use it downstream.
 
-# To call clusters in this reduced dimension sub-space, we use the addClusters() function which uses Seurat’s graph clustering as the default clustering method.
-proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
+```{r Run LSI with additional clustering, lower resolution and variable features}
+projHeme2 <- addIterativeLSI(
+    ArchRProj = projHeme2,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI2", 
+    iterations = 4, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(0.1, 0.2, 0.4), 
+        sampleCells = 10000, 
+        n.start = 10
+    ), 
+    varFeatures = 15000, 
+    dimsToUse = 1:30
+)
+```
+#### Clustering 
+<br>
+Now that we defined the most important peaks of each cell with iterative LSI, we can now cluster our cells.
+```{r Dimensionality Reduction, message = F, warning = F}
+projHeme2 <- addClusters(
+    input = projHeme2,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 0.8
+)
+```
+To access these clusters we can use the $ accessor which shows the cluster ID for each single cell.
+```{r Acess clusters}
+Kable(head(projHeme2$Clusters))
+```
+
+We can tabulate the number of cells present in each cluster:
+```{r Tabulate number of cells in each cluster}
+kable(projHeme2$Clusters)
+```
+
+To better understand which samples reside in which clusters, we can create a cluster confusion matrix across each sample using the confusionMatrix() function.
+```{r Confusion matrix of which samples reside in which cluster}
+cM <- confusionMatrix(paste0(projHeme2$Clusters), paste0(projHeme2$Sample))
+kable(cM)
+```
+
+```{r Confusion matrix as heatmap}
+library(pheatmap)
+cM <- cM / Matrix::rowSums(cM)
+p <- pheatmap::pheatmap(
+    mat = as.matrix(cM), 
+    color = paletteContinuous("whiteBlue"), 
+    border_color = "black"
+)
+p
+```
 
 # We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
-```
 <br>
+
 After identifying clusters in the LSI sub-space, ArchR embeddings such as UMAP and t-SNE can be used to visualie these clusters.
 <br>
+
+```{r UMAP Generation and Visualization}
+projHeme2 <- addUMAP(
+    ArchRProj = projHeme2, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP", 
+    nNeighbors = 30, 
+    minDist = 0.5, 
+    metric = "cosine"
+)
+```
+
+
 ```{r UMAP Visualization}
 # We can visualize the UMAP in a number of ways by calling various attributes of the cells stored in the `cellColData` matrix. Here, we can visualize the UMAP by sample, or clusters.
-p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
-p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
+p1 <- plotEmbedding(ArchRProj = projHeme2, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
+p2 <- plotEmbedding(ArchRProj = projHeme2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ggAlignPlots(p1, p2, type = "h")
 ```
 
@@ -270,7 +336,7 @@ First, we add imputation weights using [MAGIC](https://github.com/KrishnaswamyLa
 
 #### Cell cluster assignment a posteriori 
 ```{r Assign genes to clusters, message = FALSE, cache = TRUE}
-proj <- addImputeWeights(proj)
+projHeme2 <- addImputeWeights(projHeme2)
 
 #Now we can overlay our marker gene scores on our 2D UMAP embedding.
 markerGenes  <- c(
@@ -284,11 +350,11 @@ markerGenes  <- c(
 
 ```{r Make plots, message = FALSE}
 p <- plotEmbedding(
-    ArchRProj = proj, 
+    ArchRProj = projHeme2, 
     colorBy = "GeneScoreMatrix", 
     name = markerGenes, 
     embedding = "UMAP",
-    imputeWeights = getImputeWeights(proj)
+    imputeWeights = getImputeWeights(projHeme2)
 )
 ```
 
@@ -315,7 +381,7 @@ do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
 #Save an editable PDF version
 plotPDF(plotList = p, 
     name = "Plot-UMAP-Marker-Genes-W-Imputation.pdf", 
-    ArchRProj = proj, 
+    ArchRProj = projHeme2, 
     addDOC = FALSE, width = 5, height = 5)
 ```
 <br>
@@ -369,7 +435,7 @@ ArchR allows for visualization of genome browser tracks to browse local chromati
 
 ```{r Plot browser track of markerGenes within each cluster}
 p <- plotBrowserTrack(
-    ArchRProj = proj, 
+    ArchRProj = projHeme2, 
     groupBy = "Clusters", 
     geneSymbol = markerGenes, 
     upstream = 50000,
@@ -385,21 +451,21 @@ Lastly, we save the above figure with the following.
 ```{r save PDF of local chromatin accessibility flanking CD14}
 plotPDF(plotList = p, 
     name = "Plot-Tracks-Marker-Genes.pdf", 
-    ArchRProj = proj, 
+    ArchRProj = projHeme2, 
     addDOC = FALSE, width = 5, height = 5)
 ```
 ### ArchR Shiny App
 
 ArchR natively supports an interactice genome browser through shiny app that can be launched with the following.
 ```{r Load Shiny APp}
-ArchRBrowser(ArchRProj = proj)
+ArchRBrowser(ArchRProj = projHeme2)
 ```
 ### Saving and Loading an ArchRProject
 We can save the ArchRProject in session and load it at a later time. Saving copies the current ArchRProject object and all of the Arrow files to a specified directory (or the output directory specified earlier). Saving an ArchRProject allows us to easily load all computations we did in earlier steps, pr share the project with collaborators.  
 <br>
 Another way to leverage this save feature, we can run all the computational lines of code we did earlier on one Rmd, load the project on another Rmd to visualize the data. 
 ```{r Save ArchRProject}
-proj <- saveArchRProject(ArchRProj = proj)
+proj <- saveArchRProject(ArchRProj = projHeme2)
 ```
 <br>
 ```{r Load ArchRProject}
