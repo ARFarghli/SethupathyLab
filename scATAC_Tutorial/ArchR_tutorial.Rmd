@@ -33,7 +33,12 @@ https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_PBMC_R1.
 Content type 'application/x-gzip' length 132168697 bytes (126.0 MB)
 ```{r download tutorial data and add genome}
 #inputFiles <- getTutorialData(tutorial = "hematopoiesis")
+# inputFiles <- getTutorialData(tutorial = "hematopoiesis")
+
 inputFiles <- c("HemeFragments/scATAC_BMMC_R1.fragments.tsv.gz","HemeFragments/scATAC_CD34_BMMC_R1.fragments.tsv.gz", "HemeFragments/scATAC_PBMC_R1.fragments.tsv.gz")
+
+inputFiles
+
 addArchRGenome(genome = "hg19", install = FALSE)
 ```
 ### Creating Arrow Files
