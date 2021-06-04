@@ -22,15 +22,18 @@ set.seed(1)
 
 ```{r set threads, message = F, warning = F}
 #set threads specific to your machine
-addArchRThreads(threads = 22) 
+addArchRThreads(threads = 24) 
 ```
 
 We need a reference genome for downstream analyses. ArchR natively supports hg19, hg38, mm9, and mm10.
 [Here is more information on how the genomes are compiled and how to create a custom genome](https://www.archrproject.com/bookdown/getting-set-up.html)
-
+https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_BMMC_R1.fragments.tsv.gz
+https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_CD34_BMMC_R1.fragments.tsv.gz
+https://jeffgranja.s3.amazonaws.com/ArchR/TestData/HemeFragments/scATAC_PBMC_R1.fragments.tsv.gz
+Content type 'application/x-gzip' length 132168697 bytes (126.0 MB)
 ```{r download tutorial data and add genome}
-inputFiles <- getTutorialData(tutorial = "Hematopoiesis")
-inputFiles
+#inputFiles <- getTutorialData(tutorial = "hematopoiesis")
+inputFiles <- c("HemeFragments/scATAC_BMMC_R1.fragments.tsv.gz","HemeFragments/scATAC_CD34_BMMC_R1.fragments.tsv.gz", "HemeFragments/scATAC_PBMC_R1.fragments.tsv.gz")
 addArchRGenome(genome = "hg19", install = FALSE)
 ```
 ### Creating Arrow Files
@@ -85,7 +88,7 @@ A good scATAC-seq library will have an R^2 >.9 R^2 values less than .9 indicates
 <br>
 
 ### Creating an ArchRProject
-```{r Create ArchRProject, message = FALSE, cache = TRUE}
+```{r Create ArchRProject, message = FALSE}
 projHeme1 <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "HemeTutorial",
@@ -106,10 +109,10 @@ We can check how much memory is used to store the ArchRProject in memory within 
 
 There are many features to the ArchRProject that include manipulation, plotting sample statistics, fragments sizes, and TSS enrichment. A unique feature of ArchRProject is the ability to save and load the Project which allows for ease of sharing. [Check out more of these functions here](https://www.archrproject.com/bookdown/creating-an-archrproject.html)
 
-```{r Filter doublets ArchRProject, message = F, warning = F, cache = TRUE}
+```{r message = F, warning = F}
 paste0("Memory Size = ", round(object.size(projHeme1) / 10^6, 3), " MB")
 # We can query which data matrices are available in the ArchRProject. At this point in time, we should have “GeneScoreMatrix” and “TileMatrix”. As we continue to work and add to the ArchRProject, we can use the following function to query which matricies are added to the project.
-getAvailableMatrices(proj)
+getAvailableMatrices(projHeme1)
 ```
 
 #### Plotting Sample Statistics from an ArchRProject
@@ -262,12 +265,12 @@ projHeme2 <- addClusters(
 ```
 To access these clusters we can use the $ accessor which shows the cluster ID for each single cell.
 ```{r Acess clusters}
-Kable(head(projHeme2$Clusters))
+head(projHeme2$Clusters)
 ```
 
 We can tabulate the number of cells present in each cluster:
 ```{r Tabulate number of cells in each cluster}
-kable(projHeme2$Clusters)
+table(projHeme2$Clusters)
 ```
 
 To better understand which samples reside in which clusters, we can create a cluster confusion matrix across each sample using the confusionMatrix() function.
@@ -287,7 +290,7 @@ p <- pheatmap::pheatmap(
 p
 ```
 
-# We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
+We can visualize our scATAC-seq data using a 2-dimensional representation such as Uniform Manifold Approximation and Projection (UMAP). To do this, we add a UMAP embedding to our ArchRProject object with the addUMAP() function. This function uses the uwot package to perform UMAP.
 proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
 <br>
 
@@ -316,7 +319,7 @@ ggAlignPlots(p1, p2, type = "h")
 ```{r Save UMAP embedding as PDF, message = FALSE}
 #To save an editable vectorized version of this plot, we use the plotPDF() function.
 plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf",
-        ArchRProj = proj, addDOC = FALSE, width = 5, height = 5)
+        ArchRProj = projHeme2, addDOC = FALSE, width = 5, height = 5)
 ```
 
 ### Gene Scores and Marker Genes with ArchR
@@ -457,7 +460,7 @@ plotPDF(plotList = p,
 ### ArchR Shiny App
 
 ArchR natively supports an interactice genome browser through shiny app that can be launched with the following.
-```{r Load Shiny APp}
+```{r Load Shiny App}
 ArchRBrowser(ArchRProj = projHeme2)
 ```
 ### Saving and Loading an ArchRProject
@@ -465,11 +468,11 @@ We can save the ArchRProject in session and load it at a later time. Saving copi
 <br>
 Another way to leverage this save feature, we can run all the computational lines of code we did earlier on one Rmd, load the project on another Rmd to visualize the data. 
 ```{r Save ArchRProject}
-proj <- saveArchRProject(ArchRProj = projHeme2)
+saveArchRProject(ArchRProj = projHeme2, outputDirectory = "Save-ProjHeme2", load = FALSE)
 ```
 <br>
 ```{r Load ArchRProject}
-proj <- loadArchRProject(path = "HemeTutorial")
+projHeme2 <- loadArchRProject(projHeme2)
 ```
 
 ### Defining Cluster Identity with scRNA-seq
@@ -497,7 +500,6 @@ and we can look at how many cells are in each cell-type.
 ```{r Number of cells in each cell-type}
 table(colData(seRNA)$BioClassification)
 ```
-
 #### Unconstrained Integration
 
 The first round of integration we perform will be a preliminary unconstrained integration, in which we do not identify any scATAC-seq clusters. We will use we use the addGeneIntegrationMatrix() function with either a Seurat object or a RangedSummarizedExperiment object via the seRNA parameter. There are other parameters that provide column names.
@@ -650,6 +652,7 @@ projHeme3 <- addGeneIntegrationMatrix(
     nameScore = "predictedScore"
 )
 ```
+This took almost ~30min to run
 
 GeneIntegrationMatrix should now be available to us
 ```{r Check projHeme3 matrices}
@@ -812,15 +815,15 @@ We do this by grouping together single-cells derived from cell cluster or supers
 
 We will group cells from clusters, and we will used clusters defined by scRNA-seq integration in the last step. 
 **NOTE: This grouping is not available if you did not integrate your across libraries. An alternative grouping will need to be used**
-```{r Generate psuedo bulk libraries}
+```{r Generate psuedo bulk libraries, message = FALSE}
 projHeme4 <- addGroupCoverages(ArchRProj = projHeme3, groupBy = "Clusters2")
 ```
 
 ### Calling bulk replicate peaks with ArchR
 
-ArchR has their own proprietary, fixed widt, hpeak calling method. Other methods of peak calling include bedtools merge, bedtools cluster. They both have their own short comings that are resolved by the ArchR iterative overlap approach. You can also add in your own peak set. Read more [here](https://www.archrproject.com/bookdown/the-iterative-overlap-peak-merging-procedure.html)
+ArchR has their own proprietary, fixed width, peak calling method. Other methods of peak calling include bedtools merge, bedtools cluster. They both have their own short comings that are resolved by the ArchR iterative overlap approach. You can also add in your own peak set. Read more [here](https://www.archrproject.com/bookdown/the-iterative-overlap-peak-merging-procedure.html)
 
-ArchR looks for Macs2 for for peak calling. If it cannt find it, add it using the following code
+ArchR looks for Macs2 for for peak calling. If it cannot find it, add it using the following code
 
 ```{r Path to Mac2}
 pathToMacs2 <- findMacs2()
@@ -831,11 +834,12 @@ Now we can begin to generate a merged peak set with ArchR using `addReproducible
 
 #### Peak calling with Macs2
 
-```{r}
+```{r MACS2 Psuedo-bulk Peak Calling}
+addArchRThreads(threads = 1)
 projHeme4 <- addReproduciblePeakSet(
     ArchRProj = projHeme4, 
     groupBy = "Clusters2", 
-    pathToMacs2 = pathToMacs2
+    pathToMacs2 = "/programs/macs2-2.2.7.1/bin/macs2"
 )
 ```
 
