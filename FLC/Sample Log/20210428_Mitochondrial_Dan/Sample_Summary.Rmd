@@ -11,15 +11,12 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 library(skimr)
-
-setwd("~/Git/SethupathyLab/FLC/Sample Log/20210428_Mitochondrial_Dan")
 ```
 
 
 ### Load data
 
 ```{r load data, message = F, warning = F}
-
 ### This is the full primary sample log
 sample_log <- read_csv('~/Git/SethupathyLab/FLC/Sample Log/FLC Primary Sample Log.csv') %>%
   separate(Sample, c("individual", "string"), sep = "_", remove = F)
@@ -56,7 +53,6 @@ These are chro only: **`r chro_only`**
 ### Check for paired individual samples in the RNAseq & ChROseq sample set
 
 ```{r check both, message = F, warning = F}
-
 both <- sample_log %>%
   filter(Sample %in% both_rna_chro)
 
@@ -70,7 +66,6 @@ For samples that have both ChROseq and RNAseq data, only **FLC09 (FLC09_MUOD & F
 ### Check for paired individual samples in the RNAseq only set
 
 ```{r check rna only, message = F, warning = F}
-
 rna_only_df <- sample_log %>%
   filter(Sample %in% rna_only)
 
@@ -107,3 +102,8 @@ Of these, two sets are matched: **FLC09 and FLC27**.
 
 ---
 
+```{r unsequenced RNA}
+unseq.rna <- sample_log %>% 
+  select("Sample", "Cancer Status", "FLCs sequenced with (mRNA)", "Location Sequenced (mRNA)", "mRNA included in Cell Reports") %>% 
+  filter(any_vars(is.na(.)))
+```
