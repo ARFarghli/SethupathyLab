@@ -105,5 +105,10 @@ Of these, two sets are matched: **FLC09 and FLC27**.
 ```{r unsequenced RNA}
 unseq.rna <- sample_log %>% 
   select("Sample", "Cancer Status", "FLCs sequenced with (mRNA)", "Location Sequenced (mRNA)", "mRNA included in Cell Reports") %>% 
-  filter(any_vars(is.na(.)))
+  filter_all(any_vars(is.na(.)))
 ```
+
+```{r import real masses}
+real.masses <- read_csv(file = "")
+```
+

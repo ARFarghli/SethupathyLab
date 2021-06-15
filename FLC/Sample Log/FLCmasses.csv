@@ -1,0 +1,61 @@
+,Sample,Type,Mass (mg) according to FCF,scATAC-seq (mg),ChRO-seq (mg),Metabolomics (mg),snRNA-seq (mg),RNA-seq & small RNA-seq (mg),qPCR to check DP (mg),Subcellular Fractionation (mg),Proteomics (mg),10X multiomics (mg),Remaining (mg),"RNA conc. (ng/uL, isolated 10.30.2020 by RM)","Volume RNA (uL, isolated 10.30.2020 by RM)","New RNA prep for smRNAseq (ng/uL, 2.10.21, Adam)",DP Ct/ IB,Protein Lysate available,"DP Status (At Protein Level; Samples 1-22) 
+TBD = To Be Done
+Positive = DP Present
+Negative = DP Absent
+NA = Not Enough Sample"
+1,FLC06_DZIS,Metastatic,2298,,,Y,,Y,,,,,,,,,,,TBD
+2,FLC06_UFNW,Metastatic,1901,,,Y,,Y,,,,,,,,,,,TBD
+3,FLC13_BTLY,Metastatic,"1839, 2414, 1837",,,Y,,Dup,,,,,,,,,,,TBD
+4,FLC15_AWTJ,Metastatic,"1790, 1488",,Y,Y,,Y,,,,,,,,,,,TBD
+5,FLC18_WSVW,Metastatic,1355,,Y,Y,,Y,,,,,,,,,,,TBD
+6,FLC18_QFZD,Metastatic,294,,,Y,,Y,,,,,,,,,,,TBD
+7,FLC20_ZDNV,Metastatic,"2399, 1405",,Y,Y,,Y,,,,,,,,,,Y,Positive
+8,FLC24_MOYV,Primary,3523,,Y,Y,,Y,,,,,,,,,,,TBD
+9,FLC24_DJZW,Primary,"1054, 1753, 2144",,Y,Y,,Y,,,,50,,,,,,Y,Positive
+10,FLC25_BCRB,Metastatic,437,,,Y,,Y,,,,,,,,,,,TBD
+11,FLC25_UYHR,Metastatic,1696,,Y,Y,,Y,,,,,,,,,,,Positive
+12,FLC26_ICBQ,Nonmalignant,568,,Y,Y,,Y,,,,50,,,,,,Y,Negative
+13,FLC26_OAOE,Metastatic,1615,,Y,Y,,Y,,,,,,,,,,,Positive
+14,FLC26_YJEE,Primary,1036,,Y,Y,,Y,,,,50,,,,,,Y,Positive
+15,FLC27_BWSX,Nonmalignant,424,,Y,Y,,Y,,,,50,,,,,,Y,Negative
+16,FLC27_XDGP,Metastatic,602,,Y,Y,,Y,,,,,,,,,,Y,Positive
+17,FLC28_RKXK,Metastatic,2743,,Y,Y,,Y,,,,,,,,,,,TBD
+18,FLC29_QLXW,Metastatic,85,,,Y,,Y,,,,,,,,,,,TBD
+19,FLC30_KPKS,Metastatic,1316,,Y,Y,,Y,,,,,,,,,,,TBD
+20,FLC33_NYTS,Metastatic,149,,,Y,,Y,,,,,,,,,,,TBD
+21,FLC34_YROP,Primary,1013,,Y,Y,,Y,,,,50,,,,,,,TBD
+22,FLC34_PMVV,Nonmalignant,649,,Y,Y,,Y,,,,50,,,,,,Y,TBD
+,,,,,,,,,,,,,,,,,,,
+23,FCF55-T,Tumor-Recurrent,250,75,100,15,,10,5,10,,,0,59.5,16,508.9,22.08,,
+24,FCF56-T,Tumor-Primary,230,75,100,15,,10,5,,,,0,237.6,49.83,150.1,24.25,,
+25,FCF56-N,Nonmalignant,200,75,100,,,,5,,,,20,281.2,108.63,,33.58,,
+26,FCF57-T,Tumor-Primary,73,,,,50,5,5,10,,,0,81.6,16,38.1,31.3,,
+27,FCF57-N,Nonmalignant,240,70,60,,50,0,0,,,,0,N/A,N/A,,No Data,,
+28,FCF58-T,Tumor-Primary,270,75,100,15,,10,5,10,,,25,201.3,50.04,174.7,27.1,,
+29,FCF58L-T,Tumor-Primary,216,75,100,15,,,5,,,,50,177.3,115.25,32,24.42,,
+30,FCF82-T,Tumor-Primary,260,75,100,15,,10,5,10,,,50,184.7,82.276,221.1,23.75,,
+31,FCF82-N,Nonmalignant,200,75,100,15,,,5,,,,25,181.8,81.78,200.7,38.95,,
+32,FCF83-T,Tumor-Primary,200,60,100,15,50,,5,10,,,0,145.8,58.21,78.3,23.21,,
+33,FCF83-N,Nonmalignant,230,75,100,15,50,10,5,10,,,0,171.9,142.55,99.4,34.3,,
+34,FCF84-T,Tumor-Primary,50,,,,30,,5,,,,15,221.3,52.86,,26.02,,
+35,FCF84-N,Nonmalignant,165,75,,15,50,10,5,10,,,0,180.1,68.79,42.7,32.5,,
+36,FCF85-T,Tumor-Metastatic,73,,,,40,,5,0,,,28,216.4,78.81,,22.87,,
+,,,,,,,,,,,,,,,,,,,
+37,FCF87-T6,Tumor-Primary,210,,,,,5,5,,,,200,,,319,Not detected,,
+38,FCF87-N3,Nonmalignant,210,,,,50,5,5,,,,150,,,602,39.91,,
+39,FCF88-T5,Tumor-Primary,80,,,,,5,5,,,,70,,,175,23.59,,
+40,FCF89-T5,Tumor-Primary,210,,,,50,5,5,,,50,100,,,337,23.33,,
+41,FCF89-N3,Nonmalignant,210,,,,50,5,5,,,50,100,,,624,34.9,,
+42,FCF90-T10,Tumor-metastatic,210,,,,50,5,5,,,,150,,,290,28.19,,
+43,FCF90-N3,Nonmalignant,210,,,,50,5,5,,,,150,,,461,32.76,,
+LEGEND,,,,,,,,,,,,,,,,,,,
+purple,these samples have been allocated and used as per its designated use. It is no longer in the freezer box. ,,,,,,,,,,,,,,,,,,
+red,these samples are slightly smaller than the optimal amount for the experiment,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+"This sheet denotes the actual sample mass allocated per experiment in tubes stored in the -80C. Some samples are smaller than the optimal amount, as highlighted in red. Some samples arrived at larger masses than indicated on the arrival sheet, as highlighted in green.",,,,,,,,,,,,,,,,,,,
+"In the -80 freezer, Box 1 contains samples for scATAC-Seq, ChRO-Seq and Metabolomics. Box 2 contains samples for snRNA-seq, RNA/small RNA-seq, qPCR, subcellular fractionation and extra sample.",,,,,,,,,,,,,,,,,,,
+"Tumor FCF83-T4 (the second replicate tumor from FCF83) was not partitioned and remains in its original tube, stored with ""extra"" in Box 2",,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+"On 10.30.2020, RM performed tissue pulverization and RNA isolation on primary samples for FCF55 to FCF83. RNA concentrations are recorded as per nanodrop reads and are located in Box 2. ",,,,,,,,,,,,,,,,,,,
