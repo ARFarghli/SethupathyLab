@@ -11,25 +11,22 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 library(skimr)
-
-setwd("~/Git/SethupathyLab/FLC/Sample Log/20210428_Mitochondrial_Dan")
 ```
 
 
 ### Load data
 
 ```{r load data, message = F, warning = F}
-
 ### This is the full primary sample log
-sample_log <- read_csv('~/Git/SethupathyLab/FLC/Sample Log/FLC Primary Sample Log.csv') %>%
+sample_log <- read_csv('FLC Primary Sample Log.csv') %>%
   separate(Sample, c("individual", "string"), sep = "_", remove = F)
 
 ### This is the ChROseq table from Tim's Cell Reports paper
-chro_samples <- read_csv("~/Git/SethupathyLab/FLC/Sample Log/ChROseq_samples.csv")
+chro_samples <- read_csv("ChROseq_samples.csv")
 chro_samples <- substr(names(chro_samples)[-1], 5, 14)
 
 ### These are the RNAseq samples
-rna <- read_tsv("~/Git/SethupathyLab/FLC/Sample Log/pFLC01-34_CountTable_DESeq2Normalized_noTCGA_20200202.txt")
+rna <- read_tsv("pFLC01-34_CountTable_DESeq2Normalized_noTCGA_20200202.txt")
 rna_samples = names(rna)[-1]
 ```
 
@@ -56,7 +53,6 @@ These are chro only: **`r chro_only`**
 ### Check for paired individual samples in the RNAseq & ChROseq sample set
 
 ```{r check both, message = F, warning = F}
-
 both <- sample_log %>%
   filter(Sample %in% both_rna_chro)
 
@@ -70,7 +66,6 @@ For samples that have both ChROseq and RNAseq data, only **FLC09 (FLC09_MUOD & F
 ### Check for paired individual samples in the RNAseq only set
 
 ```{r check rna only, message = F, warning = F}
-
 rna_only_df <- sample_log %>%
   filter(Sample %in% rna_only)
 
@@ -106,4 +101,45 @@ These are all the patient samples that contain both RNA-seq and ChRO-seq.
 Of these, two sets are matched: **FLC09 and FLC27**.
 
 ---
+
+```{r import real masses and dedup}
+FLCmasses <- read_csv("FLCmasses.csv")
+FLC_Primary_Sample_Log <- read_csv("FLC Primary Sample Log.csv")
+```
+
+```{r sequeneced and published}
+seq.pub.rna <- sample_log %>% 
+  select("Sample", "Cancer Status", "mRNA included in Cell Reports", "ChRO-seq", "ChROseq included in Cell Reports", "FLCs sequenced with (mRNA)") %>% 
+  filter(`mRNA included in Cell Reports` == "Y")
+no.dups <- FLC_Primary_Sample_Log %>% 
+  select("Sample", "Remove Sample as Duplicate") %>% 
+  filter(`Remove Sample as Duplicate` == "N")
+seq.pub.combined <- inner_join(seq.pub.rna, no.dups)
+kable(seq.pub.rna)
+write.csv(x = seq.pub.rna, file = "output/seq_pub.csv")
+```
+
+```{r sequenced and not published}
+seq.unpub.rna <- sample_log %>% 
+  select("Sample", "Cancer Status", "FLCs sequenced with (mRNA)", "mRNA included in Cell Reports", "ChRO-seq", "ChROseq included in Cell Reports") %>% 
+  filter(`mRNA included in Cell Reports` == "N" & !is.na(`FLCs sequenced with (mRNA)`))
+seq.unpub.combined <- inner_join(seq.unpub.rna, FLCmasses)
+kable(seq.unpub.rna)
+write.csv(x = seq.unpub.combined, file = "output/seq_unpub.csv")
+```
+
+```{r unsequenced RNA}
+unseq.rna <- sample_log %>% 
+  select("Sample", "Cancer Status", "FLCs sequenced with (mRNA)", "mRNA included in Cell Reports", "ChRO-seq", "ChROseq included in Cell Reports") %>% 
+  filter_all(any_vars(is.na(.)))
+kable(unseq.rna)
+unseq.combined <- inner_join(unseq.rna, FLCmasses)
+write.csv(x = unseq.combined, file = "output/unseq_rna.csv")
+```
+
+
+
+
+
+
 
